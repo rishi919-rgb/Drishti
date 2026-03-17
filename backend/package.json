@@ -1,0 +1,31 @@
+{
+  "name": "drishti-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Drishti AI Visual Assistant",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.5.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "@google/genai": "^0.1.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "ai",
+    "visual-assistant",
+    "accessibility",
+    "gemini",
+    "drishti"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
