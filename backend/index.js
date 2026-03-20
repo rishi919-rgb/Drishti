@@ -10,7 +10,10 @@ const app = express();
 
 // CORS configuration
 const allowedOrigins = [
+   'http://localhost:5173', // Drishti frontend
    'http://localhost:5174', // Drishti frontend
+   'http://localhost:5175', // Drishti frontend
+   'http://localhost:5176', // Drishti frontend
    'https://drishti.netlify.app', // Production frontend
 ];
 
