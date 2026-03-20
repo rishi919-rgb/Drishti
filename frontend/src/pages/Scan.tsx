@@ -511,6 +511,20 @@ export const ScanPage: React.FC<ScanPageProps> = ({
                 />
               </div>
               
+              {/* Face Detection Preview */}
+              <div className="bg-gray-700 rounded p-3">
+                <p className="text-sm text-gray-300 mb-2">Face Detection Status:</p>
+                <div className="flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${isFaceModelLoaded ? 'bg-green-400' : 'bg-red-400'}`} />
+                  <span className="text-sm">
+                    {isFaceModelLoaded ? 'Models loaded - Ready to detect' : 'Loading models...'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  Position your face clearly in the camera view before clicking "Enroll Face"
+                </p>
+              </div>
+              
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowFaceEnrollment(false)}
@@ -521,13 +535,16 @@ export const ScanPage: React.FC<ScanPageProps> = ({
                 <button
                   onClick={async () => {
                     if (enrollmentName.trim()) {
-                      const success = await enrollFace(enrollmentName.trim())
-                      if (success) {
+                      const result = await enrollFace(enrollmentName.trim())
+                      if (result.success) {
                         await speechService.speak(`Face enrolled for ${enrollmentName}`)
                         setShowFaceEnrollment(false)
                         setEnrollmentName('')
+                        alert(`Successfully enrolled: ${enrollmentName}`)
                       } else {
-                        await speechService.speak('Face enrollment failed. Please try again.')
+                        const errorMsg = result.error || 'Face enrollment failed'
+                        await speechService.speak(errorMsg)
+                        alert(`Error: ${errorMsg}`)
                       }
                     }
                   }}

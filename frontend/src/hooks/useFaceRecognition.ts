@@ -14,6 +14,11 @@ interface DetectedFace {
   distance?: number
 }
 
+interface EnrollResult {
+  success: boolean
+  error?: string
+}
+
 interface UseFaceRecognitionOptions {
   videoRef: React.RefObject<HTMLVideoElement>
   isEnabled: boolean
@@ -27,7 +32,7 @@ interface UseFaceRecognitionReturn {
   modelError: string
   detectedFaces: DetectedFace[]
   isDetecting: boolean
-  enrollFace: (name: string) => Promise<boolean>
+  enrollFace: (name: string) => Promise<EnrollResult>
   detectFaces: () => Promise<void>
 }
 
@@ -155,14 +160,18 @@ export const useFaceRecognition = ({
   }
 
   // Enroll a new face
-  const enrollFace = useCallback(async (name: string): Promise<boolean> => {
-    if (!videoRef.current || !modelsLoadedRef.current) {
-      return false
+  const enrollFace = useCallback(async (name: string): Promise<EnrollResult> => {
+    if (!modelsLoadedRef.current) {
+      return { success: false, error: 'Face recognition models not loaded yet' }
+    }
+
+    if (!videoRef.current) {
+      return { success: false, error: 'Camera not available' }
     }
 
     const video = videoRef.current
     if (video.readyState !== 4) {
-      return false
+      return { success: false, error: 'Camera video not ready. Please wait...' }
     }
 
     try {
@@ -173,8 +182,7 @@ export const useFaceRecognition = ({
         .withFaceDescriptor()
 
       if (!detection) {
-        console.log('No face detected for enrollment')
-        return false
+        return { success: false, error: 'No face detected. Please position your face clearly in the camera view.' }
       }
 
       // Save to IndexedDB
@@ -188,12 +196,14 @@ export const useFaceRecognition = ({
           createdAt: new Date().toISOString()
         })
         console.log(`Face enrolled: ${name}`)
+        return { success: true }
+      } else {
+        return { success: false, error: 'Failed to save face data' }
       }
 
-      return saved
     } catch (error) {
       console.error('Face enrollment error:', error)
-      return false
+      return { success: false, error: 'Error during enrollment: ' + (error as Error).message }
     }
   }, [videoRef])
 
