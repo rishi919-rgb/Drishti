@@ -60,8 +60,9 @@ class ApiService {
 
   constructor() {
     this.baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001'
-    // Use mock API if backend is not available
-    this.useMock = import.meta.env.VITE_USE_MOCK_API === 'true' || !this.baseUrl
+    // Force real API - no more mock
+    this.useMock = false
+    console.log('API Service initialized - using real backend:', this.baseUrl)
   }
 
   private async request<T>(
@@ -98,14 +99,16 @@ class ApiService {
 
   // Analyze image (no auth required)
   async analyzeImage(request: DrishtiAnalysisRequest): Promise<DrishtiAnalysisResponse> {
-    if (this.useMock) {
+    // Try real API first, fallback to mock if it fails
+    try {
+      return await this.request<DrishtiAnalysisResponse>('/analyze', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      })
+    } catch (error) {
+      console.warn('Backend API failed, using mock:', (error as Error).message)
       return mockApiService.analyzeImage(request)
     }
-    
-    return this.request<DrishtiAnalysisResponse>('/analyze', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    })
   }
 
   // Save analysis to history (auth required)
