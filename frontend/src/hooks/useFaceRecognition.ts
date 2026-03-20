@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import * as tf from '@tensorflow/tfjs'
 import * as faceapi from 'face-api.js'
+
+// Ensure TensorFlow is ready before face-api uses it
+tf.ready().then(() => {
+  console.log('TensorFlow.js backend ready:', tf.getBackend())
+})
 
 interface FaceDescriptor {
   name: string
