@@ -66,8 +66,10 @@ export const useFaceRecognition = ({
       setModelError('')
 
       try {
-        // Load models from public/models directory (you'll need to download these)
-        const MODEL_URL = '/models'
+        // Use CDN-hosted models for reliability
+        const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'
+        
+        console.log('Loading face-api.js models from CDN...')
 
         await Promise.all([
           faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
@@ -77,13 +79,21 @@ export const useFaceRecognition = ({
 
         modelsLoadedRef.current = true
         setIsModelLoaded(true)
-        console.log('Face-api.js models loaded successfully')
+        console.log('Face-api.js models loaded successfully from CDN')
 
         // Load enrolled faces from IndexedDB
         await loadEnrolledFaces()
       } catch (error) {
         console.error('Failed to load face recognition models:', error)
-        setModelError('Failed to load face recognition models. Make sure model files are in /public/models')
+        setModelError('Failed to load models. Will retry automatically.')
+        
+        // Retry after 5 seconds
+        setTimeout(() => {
+          if (!modelsLoadedRef.current) {
+            console.log('Retrying model load...')
+            loadModels()
+          }
+        }, 5000)
       } finally {
         setIsModelLoading(false)
       }
