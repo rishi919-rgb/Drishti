@@ -99,16 +99,9 @@ class ApiService {
 
   // Analyze image (no auth required)
   async analyzeImage(request: DrishtiAnalysisRequest): Promise<DrishtiAnalysisResponse> {
-    // Try real API first, fallback to mock if it fails
-    try {
-      return await this.request<DrishtiAnalysisResponse>('/analyze', {
-        method: 'POST',
-        body: JSON.stringify(request),
-      })
-    } catch (error) {
-      console.warn('Backend API failed, using mock:', (error as Error).message)
-      return mockApiService.analyzeImage(request)
-    }
+    // Force mock API for now to avoid backend issues
+    console.log('Using mock API for analysis')
+    return mockApiService.analyzeImage(request)
   }
 
   // Save analysis to history (auth required)
