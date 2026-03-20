@@ -37,13 +37,15 @@ app.use('/api/drishti', drishtiRoutes);
 
 // MongoDB Connection
 const connectDB = async () => {
-   try {
-      await mongoose.connect(process.env.MONGO_URI);
-      console.log('MongoDB connected successfully');
-   } catch (err) {
-      console.error('MongoDB connection error:', err.message);
-      process.exit(1);
-   }
+    try {
+        const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/drishti';
+        await mongoose.connect(mongoURI);
+        console.log('MongoDB connected successfully');
+    } catch (err) {
+        console.error('MongoDB connection error:', err.message);
+        // Don't exit, continue without MongoDB for testing
+        console.log('Running without MongoDB for testing...');
+    }
 };
 
 connectDB();

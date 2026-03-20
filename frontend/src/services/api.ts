@@ -1,3 +1,5 @@
+import { mockApiService } from './mockApi'
+
 interface DrishtiAnalysisRequest {
   imageBase64: string
   prompt?: string
@@ -54,9 +56,12 @@ interface DrishtiReportResponse {
 
 class ApiService {
   private baseUrl: string
+  private useMock: boolean
 
   constructor() {
     this.baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001'
+    // Use mock API if backend is not available
+    this.useMock = import.meta.env.VITE_USE_MOCK_API === 'true' || !this.baseUrl
   }
 
   private async request<T>(
@@ -93,6 +98,10 @@ class ApiService {
 
   // Analyze image (no auth required)
   async analyzeImage(request: DrishtiAnalysisRequest): Promise<DrishtiAnalysisResponse> {
+    if (this.useMock) {
+      return mockApiService.analyzeImage(request)
+    }
+    
     return this.request<DrishtiAnalysisResponse>('/analyze', {
       method: 'POST',
       body: JSON.stringify(request),
@@ -101,6 +110,10 @@ class ApiService {
 
   // Save analysis to history (auth required)
   async saveAnalysis(request: DrishtiSaveRequest): Promise<DrishtiSaveResponse> {
+    if (this.useMock) {
+      return mockApiService.saveAnalysis(request)
+    }
+    
     return this.request<DrishtiSaveResponse>('/save', {
       method: 'POST',
       body: JSON.stringify(request),
@@ -131,6 +144,10 @@ class ApiService {
 
   // Auth methods (reuse from TruthStorm)
   async login(email: string, password: string) {
+    if (this.useMock) {
+      return mockApiService.login(email, password)
+    }
+    
     return this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
@@ -138,6 +155,10 @@ class ApiService {
   }
 
   async register(name: string, email: string, password: string) {
+    if (this.useMock) {
+      return mockApiService.register(name, email, password)
+    }
+    
     return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ name, email, password }),
