@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useCamera } from '../hooks/useCamera'
 import { useContinuousScan } from '../hooks/useContinuousScan'
 import { useObjectDetection } from '../hooks/useObjectDetection'
-import { useFaceRecognition } from '../hooks/useFaceRecognition'
 import { SpeechService } from '../services/speech'
 
 interface User {
@@ -32,12 +31,8 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   
   // Offline model states
   const [isObjectDetectionEnabled, setIsObjectDetectionEnabled] = useState(true)
-  const [isFaceRecognitionEnabled, setIsFaceRecognitionEnabled] = useState(false)
   const [targetObject, setTargetObject] = useState<string>('')
   const [detectedObjectsList, setDetectedObjectsList] = useState<string[]>([])
-  const [recognizedFaces, setRecognizedFaces] = useState<string[]>([])
-  const [showFaceEnrollment, setShowFaceEnrollment] = useState(false)
-  const [enrollmentName, setEnrollmentName] = useState('')
 
   const {
     videoRef,
@@ -65,25 +60,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       }
     },
     confidenceThreshold: 0.5
-  })
-
-  // Face Recognition Hook
-  const {
-    isModelLoading: isFaceModelLoading,
-    isModelLoaded: isFaceModelLoaded,
-    detectedFaces: _detectedFaces,
-    enrollFace,
-    detectFaces
-  } = useFaceRecognition({
-    videoRef,
-    isEnabled: isFaceRecognitionEnabled && isCameraActive,
-    onFaceRecognized: (face) => {
-      if (face.matchedName) {
-        const announcement = `Hello ${face.matchedName}!`
-        speechService.speak(announcement)
-        setRecognizedFaces(prev => [...new Set([...prev, face.matchedName!])])
-      }
-    }
   })
 
   const {
@@ -128,7 +104,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     }
   }, [])
 
-  // Detect objects and faces during scanning
+  // Detect objects during scanning
   useEffect(() => {
     if (!isScanning || !isCameraActive) return
 
@@ -137,15 +113,10 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       if (isObjectDetectionEnabled && isObjectModelLoaded) {
         await detectObjects()
       }
-      
-      if (isFaceRecognitionEnabled && isFaceModelLoaded) {
-        await detectFaces()
-      }
     }, 1000) // Run offline detection every second
 
     return () => clearInterval(interval)
-  }, [isScanning, isCameraActive, isObjectDetectionEnabled, isFaceRecognitionEnabled, 
-      isObjectModelLoaded, isFaceModelLoaded, detectObjects, detectFaces])
+  }, [isScanning, isCameraActive, isObjectDetectionEnabled, isObjectModelLoaded, detectObjects])
 
   // Update detected objects list for display
   useEffect(() => {
@@ -340,39 +311,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
                   </button>
                 </div>
 
-                {/* Face Recognition Toggle */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-300">Face Recognition</span>
-                    {isFaceModelLoading && (
-                      <span className="text-xs text-yellow-400">Loading...</span>
-                    )}
-                    {isFaceModelLoaded && (
-                      <span className="text-xs text-green-400">Ready</span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setIsFaceRecognitionEnabled(!isFaceRecognitionEnabled)}
-                    className={`px-3 py-1 rounded text-sm transition-colors ${
-                      isFaceRecognitionEnabled
-                        ? 'bg-green-600 hover:bg-green-700'
-                        : 'bg-gray-600 hover:bg-gray-700'
-                    }`}
-                  >
-                    {isFaceRecognitionEnabled ? 'ON' : 'OFF'}
-                  </button>
-                </div>
-
-                {/* Face Enrollment Button */}
-                {isFaceRecognitionEnabled && (
-                  <button
-                    onClick={() => setShowFaceEnrollment(true)}
-                    className="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm transition-colors"
-                  >
-                    👤 Enroll New Face
-                  </button>
-                )}
-
                 {/* Target Object Input */}
                 {isObjectDetectionEnabled && (
                   <div>
@@ -398,20 +336,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
                       {detectedObjectsList.map((obj, idx) => (
                         <span key={idx} className="bg-gray-700 px-2 py-1 rounded text-xs">
                           {obj}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Recognized Faces */}
-                {recognizedFaces.length > 0 && (
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">Recognized Faces:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {recognizedFaces.map((name, idx) => (
-                        <span key={idx} className="bg-blue-700 px-2 py-1 rounded text-xs">
-                          {name}
                         </span>
                       ))}
                     </div>
@@ -489,75 +413,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           </section>
         </div>
       </main>
-      {/* Face Enrollment Modal */}
-      {showFaceEnrollment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4">Enroll New Face</h2>
-            
-            <div className="space-y-4">
-              <p className="text-gray-400 text-sm">
-                Position your face in the camera view and enter a name to enroll.
-              </p>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Name</label>
-                <input
-                  type="text"
-                  value={enrollmentName}
-                  onChange={(e) => setEnrollmentName(e.target.value)}
-                  placeholder="e.g., John, Mom, Friend"
-                  className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-              </div>
-              
-              {/* Face Detection Preview */}
-              <div className="bg-gray-700 rounded p-3">
-                <p className="text-sm text-gray-300 mb-2">Face Detection Status:</p>
-                <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full ${isFaceModelLoaded ? 'bg-green-400' : 'bg-red-400'}`} />
-                  <span className="text-sm">
-                    {isFaceModelLoaded ? 'Models loaded - Ready to detect' : 'Loading models...'}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-400 mt-2">
-                  Position your face clearly in the camera view before clicking "Enroll Face"
-                </p>
-              </div>
-              
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowFaceEnrollment(false)}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={async () => {
-                    if (enrollmentName.trim()) {
-                      const result = await enrollFace(enrollmentName.trim())
-                      if (result.success) {
-                        await speechService.speak(`Face enrolled for ${enrollmentName}`)
-                        setShowFaceEnrollment(false)
-                        setEnrollmentName('')
-                        alert(`Successfully enrolled: ${enrollmentName}`)
-                      } else {
-                        const errorMsg = result.error || 'Face enrollment failed'
-                        await speechService.speak(errorMsg)
-                        alert(`Error: ${errorMsg}`)
-                      }
-                    }
-                  }}
-                  disabled={!enrollmentName.trim() || !isFaceModelLoaded}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-4 py-2 rounded"
-                >
-                  Enroll Face
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
