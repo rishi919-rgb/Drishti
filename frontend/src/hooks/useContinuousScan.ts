@@ -162,7 +162,7 @@ export const useContinuousScan = (
     captureOnce()
 
     // Then set up interval
-    intervalRef.current = setInterval(() => {
+    intervalRef.current = window.setInterval(() => {
       if (!isAnalyzingRef.current) {
         captureOnce()
       }
@@ -173,7 +173,7 @@ export const useContinuousScan = (
     setIsScanning(false)
     
     if (intervalRef.current) {
-      clearInterval(intervalRef.current)
+      window.clearInterval(intervalRef.current)
       intervalRef.current = null
     }
 
@@ -185,7 +185,7 @@ export const useContinuousScan = (
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
-        clearInterval(intervalRef.current)
+        window.clearInterval(intervalRef.current)
       }
       speechService.current.stop()
     }

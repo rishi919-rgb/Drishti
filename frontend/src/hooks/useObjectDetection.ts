@@ -90,8 +90,8 @@ export const useObjectDetection = ({
       
       // Filter by confidence threshold
       const filteredPredictions = predictions
-        .filter(pred => pred.score >= confidenceThreshold)
-        .map(pred => ({
+        .filter((pred: { score: number; class: string; bbox: number[] }) => pred.score >= confidenceThreshold)
+        .map((pred: { score: number; class: string; bbox: number[] }) => ({
           class: pred.class,
           score: pred.score,
           bbox: pred.bbox as [number, number, number, number]
@@ -102,14 +102,14 @@ export const useObjectDetection = ({
       // Check if target object is detected
       if (targetObject) {
         const targetFound = filteredPredictions.some(
-          obj => obj.class.toLowerCase() === targetObject.toLowerCase()
+          (obj: { class: string }) => obj.class.toLowerCase() === targetObject.toLowerCase()
         )
         
         setTargetObjectDetected(targetFound)
 
         if (targetFound && onTargetFound) {
           const targetObj = filteredPredictions.find(
-            obj => obj.class.toLowerCase() === targetObject.toLowerCase()
+            (obj: { class: string }) => obj.class.toLowerCase() === targetObject.toLowerCase()
           )
           if (targetObj) {
             onTargetFound(targetObj)

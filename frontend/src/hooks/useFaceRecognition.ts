@@ -8,7 +8,7 @@ interface FaceDescriptor {
 }
 
 interface DetectedFace {
-  detection: faceapi.FaceDetection
+  detection: any  // Using any to avoid faceapi type issues
   descriptor: Float32Array
   matchedName?: string
   distance?: number
@@ -242,7 +242,7 @@ export const useFaceRecognition = ({
         .withFaceLandmarks()
         .withFaceDescriptors()
 
-      const faces: DetectedFace[] = detections.map(detection => {
+      const faces: DetectedFace[] = detections.map((detection: any) => {
         const match = findBestMatch(detection.descriptor)
         
         const face: DetectedFace = {

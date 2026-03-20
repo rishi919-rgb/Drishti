@@ -36,7 +36,7 @@ class MockApiService {
     }
   ]
 
-  async analyzeImage(request: {
+  async analyzeImage(_request: {
     imageBase64: string
     prompt?: string
   }): Promise<MockAnalysisResponse> {
@@ -52,7 +52,7 @@ class MockApiService {
     }
   }
 
-  async saveAnalysis(request: {
+  async saveAnalysis(_request: {
     imageBase64: string
     description: string
     detectedText?: string
@@ -68,7 +68,7 @@ class MockApiService {
     }
   }
 
-  async login(email: string, password: string): Promise<{
+  async login(email: string, _password: string): Promise<{
     token: string
     user: { id: string; name: string; email: string }
   }> {
@@ -84,7 +84,7 @@ class MockApiService {
     }
   }
 
-  async register(name: string, email: string, password: string): Promise<{
+  async register(_name: string, email: string, password: string): Promise<{
     token: string
     user: { id: string; name: string; email: string }
   }> {

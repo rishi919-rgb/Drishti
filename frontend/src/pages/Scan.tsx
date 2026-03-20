@@ -14,7 +14,7 @@ interface User {
 interface ScanPageProps {
   user: User | null
   onNavigateToHistory: () => void
-  onNavigateToReport: (publicId: string) => void
+  onNavigateToReport: (_publicId: string) => void
   onShowAuth: () => void
   onLogout: () => void
 }
@@ -22,7 +22,7 @@ interface ScanPageProps {
 export const ScanPage: React.FC<ScanPageProps> = ({
   user,
   onNavigateToHistory,
-  onNavigateToReport,
+  onNavigateToReport: _onNavigateToReport,
   onShowAuth,
   onLogout
 }) => {
@@ -71,7 +71,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   const {
     isModelLoading: isFaceModelLoading,
     isModelLoaded: isFaceModelLoaded,
-    detectedFaces,
+    detectedFaces: _detectedFaces,
     enrollFace,
     detectFaces
   } = useFaceRecognition({

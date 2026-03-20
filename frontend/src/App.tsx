@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { ScanPage } from './pages/Scan'
 import { apiService } from './services/api'
 
@@ -125,13 +125,7 @@ function AppContent() {
 }
 
 function App() {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/*" element={<AppContent />} />
-      </Routes>
-    </Router>
-  )
+  return <AppContent />
 }
 
 export default App
