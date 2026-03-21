@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { apiService } from '../services/api'
-import { SpeechService } from '../services/speech'
+import { speechService } from '../services/speech'
 
 interface ReportData {
   description: string
@@ -17,7 +17,6 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
-  const speechService = new SpeechService()
 
   useEffect(() => {
     if (publicId) {

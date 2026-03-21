@@ -10,7 +10,7 @@ const analyzeImageForDrishti = async (base64Image, customPrompt = '') => {
         const startTime = Date.now();
 
         // Call proxy service instead of direct Gemini
-        const proxyUrl = process.env.PROXY_URL || 'http://localhost:3002';
+        const proxyUrl = process.env.PROXY_URL || 'http://localhost:3001';
         
         const response = await axios.post(`${proxyUrl}/v1/ai/drishti`, {
             imageBase64: `data:image/jpeg;base64,${base64Image}`,

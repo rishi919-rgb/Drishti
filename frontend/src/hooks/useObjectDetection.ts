@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import * as cocoSsd from '@tensorflow-models/coco-ssd'
-import '@tensorflow/tfjs'
+import * as tf from '@tensorflow/tfjs'
 
 interface DetectedObject {
   class: string
   score: number
   bbox: [number, number, number, number] // [x, y, width, height]
+  position?: string // "top left", etc.
 }
 
 interface UseObjectDetectionOptions {
@@ -23,7 +24,7 @@ interface UseObjectDetectionReturn {
   detectedObjects: DetectedObject[]
   isDetecting: boolean
   targetObjectDetected: boolean
-  detectObjects: () => Promise<void>
+  detectObjects: () => Promise<DetectedObject[] | undefined>
 }
 
 export const useObjectDetection = ({
@@ -52,6 +53,7 @@ export const useObjectDetection = ({
       setModelError('')
 
       try {
+        await tf.ready() // Ensure tfjs is ready
         // Load COCO-SSD model (lightweight object detection)
         const model = await cocoSsd.load({
           base: 'lite_mobilenet_v2' // Lightweight version for mobile
@@ -97,25 +99,49 @@ export const useObjectDetection = ({
           bbox: pred.bbox as [number, number, number, number]
         }))
 
-      setDetectedObjects(filteredPredictions)
+      // Map positional logic
+      const H = video.videoHeight || video.clientHeight
+      const W = video.videoWidth || video.clientWidth
+
+      const formattedPredictions = filteredPredictions.map((pred) => {
+        const [x, y, w, h] = pred.bbox
+        const centerX = Math.round(x + w / 2)
+        const centerY = Math.round(y + h / 2)
+
+        let W_pos = 'center'
+        if (centerX < W / 3) {
+            W_pos = 'left'
+        } else if (centerX > (W / 3) * 2) {
+            W_pos = 'right'
+        }
+
+        let H_pos = 'mid'
+        if (centerY < H / 3) {
+            H_pos = 'top'
+        } else if (centerY > (H / 3) * 2) {
+            H_pos = 'bottom'
+        }
+
+        return { ...pred, position: `${H_pos}-${W_pos}` }
+      })
+
+      setDetectedObjects(formattedPredictions)
 
       // Check if target object is detected
       if (targetObject) {
-        const targetFound = filteredPredictions.some(
-          (obj: { class: string }) => obj.class.toLowerCase() === targetObject.toLowerCase()
+        const targetObj = formattedPredictions.find(
+          (obj: DetectedObject) => obj.class.toLowerCase() === targetObject.toLowerCase()
         )
         
+        const targetFound = !!targetObj;
         setTargetObjectDetected(targetFound)
 
         if (targetFound && onTargetFound) {
-          const targetObj = filteredPredictions.find(
-            (obj: { class: string }) => obj.class.toLowerCase() === targetObject.toLowerCase()
-          )
-          if (targetObj) {
             onTargetFound(targetObj)
-          }
         }
       }
+      
+      return formattedPredictions
 
     } catch (error) {
       console.error('Object detection error:', error)

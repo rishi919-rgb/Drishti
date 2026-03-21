@@ -6,7 +6,7 @@ import AIProviderManager from './services/aiProviderManager.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3001;
 
 // Initialize AI Provider Manager
 const aiManager = new AIProviderManager();

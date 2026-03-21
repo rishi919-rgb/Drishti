@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { GeminiService } from '../services/gemini'
-import { SpeechService } from '../services/speech'
+import { speechService } from '../services/speech'
 
 interface UseContinuousScanOptions {
   scanInterval?: number // milliseconds between scans (default: 2500ms)
@@ -19,9 +19,17 @@ interface UseContinuousScanReturn {
   captureOnce: () => Promise<void>
 }
 
+interface DetectedObject {
+  class: string
+  score: number
+  bbox: [number, number, number, number]
+  position?: string
+}
+
 export const useContinuousScan = (
   captureImage: () => string | null,
   isCameraActive: boolean,
+  detectObjects: () => Promise<DetectedObject[] | undefined>,
   options: UseContinuousScanOptions = {}
 ): UseContinuousScanReturn => {
   const {
@@ -39,7 +47,7 @@ export const useContinuousScan = (
   const intervalRef = useRef<number | null>(null)
   const isAnalyzingRef = useRef(false)
   const geminiService = useRef(new GeminiService())
-  const speechService = useRef(new SpeechService())
+
 
   const compressImage = useCallback((base64Image: string): Promise<string> => {
     return new Promise((resolve: (value: string) => void) => {
@@ -112,7 +120,7 @@ export const useContinuousScan = (
 
       // Speak the result
       try {
-        await speechService.current.speak(analysisText)
+        await speechService.speak(analysisText)
       } catch (speechError) {
         console.error('Speech error:', speechError)
         // Continue even if speech fails
@@ -124,7 +132,7 @@ export const useContinuousScan = (
       
       // Speak the error
       try {
-        await speechService.current.speak(`Error: ${errorMessage}`)
+        await speechService.speak(`Error: ${errorMessage}`)
       } catch (speechError) {
         console.error('Speech error:', speechError)
       }
@@ -162,12 +170,21 @@ export const useContinuousScan = (
     captureOnce()
 
     // Then set up interval
-    intervalRef.current = window.setInterval(() => {
+    intervalRef.current = window.setInterval(async () => {
       if (!isAnalyzingRef.current) {
-        captureOnce()
+        try {
+          const objs = await detectObjects();
+          if (objs && objs.length > 0) {
+            const uniqueObjs = Array.from(new Set(objs.map(o => `${o.position} ${o.class}`)));
+            const descriptions = uniqueObjs.join(', ');
+            await speechService.speak(descriptions);
+          }
+        } catch (e) {
+          console.error("Local object detection error:", e);
+        }
       }
     }, scanInterval)
-  }, [isCameraActive, captureOnce, scanInterval])
+  }, [isCameraActive, captureOnce, scanInterval, detectObjects])
 
   const stopScanning = useCallback(() => {
     setIsScanning(false)
@@ -178,7 +195,7 @@ export const useContinuousScan = (
     }
 
     // Stop any ongoing speech
-    speechService.current.stop()
+    speechService.stop()
   }, [])
 
   // Cleanup on unmount
@@ -187,7 +204,7 @@ export const useContinuousScan = (
       if (intervalRef.current) {
         window.clearInterval(intervalRef.current)
       }
-      speechService.current.stop()
+      speechService.stop()
     }
   }, [])
 

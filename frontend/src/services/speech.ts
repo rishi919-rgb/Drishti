@@ -1,7 +1,9 @@
-export class SpeechService {
+class SpeechService {
   private synth: SpeechSynthesis
   private voices: SpeechSynthesisVoice[] = []
   private isSupported: boolean
+  private queue: { text: string; options: any; resolve: () => void; reject: (err: Error) => void }[] = []
+  private processing: boolean = false
 
   constructor() {
     this.synth = window.speechSynthesis
@@ -18,21 +20,54 @@ export class SpeechService {
     }
     
     updateVoices()
-    
-    // Voices load asynchronously, so we need to listen for the event
     this.synth.addEventListener('voiceschanged', updateVoices)
   }
 
   private getPreferredVoice(): SpeechSynthesisVoice | null {
-    // Prefer English voices, with preference for clearer voices
     const preferredLanguages = ['en-US', 'en-GB', 'en-IN', 'en']
-    
     for (const lang of preferredLanguages) {
       const voice = this.voices.find(v => v.lang.startsWith(lang))
       if (voice) return voice
     }
-    
     return this.voices[0] || null
+  }
+
+  private processQueue() {
+    if (this.processing || this.queue.length === 0) return;
+    
+    this.processing = true;
+    const current = this.queue.shift();
+    
+    if (!current) {
+        this.processing = false;
+        return;
+    }
+
+    const { text, options, resolve, reject } = current;
+    const utterance = new SpeechSynthesisUtterance(text);
+      
+    utterance.rate = options.rate || 0.9 
+    utterance.pitch = options.pitch || 1.0
+    utterance.volume = options.volume || 1.0
+    
+    const voice = this.getPreferredVoice()
+    if (voice) {
+      utterance.voice = voice
+    }
+
+    utterance.addEventListener('end', () => {
+      this.processing = false;
+      resolve();
+      this.processQueue();
+    });
+
+    utterance.addEventListener('error', (event) => {
+      this.processing = false;
+      reject(new Error(`Speech error: ${event.error}`));
+      this.processQueue();
+    });
+
+    this.synth.speak(utterance);
   }
 
   speak(text: string, options: {
@@ -51,37 +86,16 @@ export class SpeechService {
         return
       }
 
-      // Cancel any ongoing speech
-      this.synth.cancel()
-
-      const utterance = new SpeechSynthesisUtterance(text)
-      
-      // Configure speech parameters for clarity
-      utterance.rate = options.rate || 0.9 // Slightly slower for clarity
-      utterance.pitch = options.pitch || 1.0
-      utterance.volume = options.volume || 1.0
-      
-      // Set preferred voice
-      const voice = this.getPreferredVoice()
-      if (voice) {
-        utterance.voice = voice
-      }
-
-      utterance.onend = () => {
-        resolve()
-      }
-
-      utterance.onerror = (event) => {
-        reject(new Error(`Speech error: ${event.error}`))
-      }
-
-      this.synth.speak(utterance)
+      this.queue.push({ text, options, resolve, reject });
+      this.processQueue();
     })
   }
 
   stop(): void {
     if (this.isSupported) {
       this.synth.cancel()
+      this.queue = [];
+      this.processing = false;
     }
   }
 
@@ -97,3 +111,5 @@ export class SpeechService {
     return this.isSupported
   }
 }
+
+export const speechService = new SpeechService();

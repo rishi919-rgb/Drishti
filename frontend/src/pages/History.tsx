@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiService, DrishtiHistoryItem } from '../services/api'
-import { SpeechService } from '../services/speech'
+import { speechService } from '../services/speech'
 
 export default function HistoryPage() {
   const [analyses, setAnalyses] = useState<DrishtiHistoryItem[]>([])
@@ -12,7 +12,6 @@ export default function HistoryPage() {
   const [user, setUser] = useState<any>(null)
   
   const navigate = useNavigate()
-  const speechService = new SpeechService()
 
   useEffect(() => {
     // Get user from localStorage

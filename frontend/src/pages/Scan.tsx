@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useCamera } from '../hooks/useCamera'
 import { useContinuousScan } from '../hooks/useContinuousScan'
 import { useObjectDetection } from '../hooks/useObjectDetection'
-import { SpeechService } from '../services/speech'
+import { speechService } from '../services/speech'
 
 interface User {
   id: string
@@ -70,14 +70,13 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     startScanning,
     stopScanning,
     captureOnce
-  } = useContinuousScan(captureImage, isCameraActive, {
+  } = useContinuousScan(captureImage, isCameraActive, detectObjects, {
     scanInterval: 3000, // 3 seconds between scans
     maxImageWidth: 640,
     maxImageHeight: 480,
     imageQuality: 0.7
   })
 
-  const speechService = new SpeechService()
 
   // Monitor online status
   useEffect(() => {
@@ -104,19 +103,8 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     }
   }, [])
 
-  // Detect objects during scanning
-  useEffect(() => {
-    if (!isScanning || !isCameraActive) return
-
-    const interval = setInterval(async () => {
-      // Run offline detection alongside online analysis
-      if (isObjectDetectionEnabled && isObjectModelLoaded) {
-        await detectObjects()
-      }
-    }, 1000) // Run offline detection every second
-
-    return () => clearInterval(interval)
-  }, [isScanning, isCameraActive, isObjectDetectionEnabled, isObjectModelLoaded, detectObjects])
+  // Cleaned up the old independent offline detection effect
+  // Now detection is driven purely by the useContinuousScan interval
 
   // Update detected objects list for display
   useEffect(() => {
@@ -220,6 +208,13 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           </div>
         </div>
       </header>
+
+      {/* Offline Banner */}
+      {!isOnline && (
+        <div className="bg-red-600 text-white text-center py-2 px-4 shadow-md font-medium text-sm">
+          ⚠️ You are currently offline. Capture once is disabled. Only local object detection is available.
+        </div>
+      )}
       
       <main className="container mx-auto p-4">
         <div className="max-w-2xl mx-auto">
