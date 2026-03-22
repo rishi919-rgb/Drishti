@@ -17,7 +17,7 @@ class AIProviderManager {
                 key: process.env.GEMINI_API_KEY_1,
                 rpm: 15, // 15 requests per minute
                 tasks: ['vision', 'text'],
-                endpoint: 'gemini-1.5-flash',
+                endpoint: 'gemini-flash-latest',
                 model: null // Will be initialized on first use
             },
             {
@@ -26,7 +26,7 @@ class AIProviderManager {
                 key: process.env.GEMINI_API_KEY_2,
                 rpm: 15,
                 tasks: ['vision', 'text'],
-                endpoint: 'gemini-1.5-flash',
+                endpoint: 'gemini-flash-latest',
                 model: null
             },
             {
@@ -35,7 +35,25 @@ class AIProviderManager {
                 key: process.env.GEMINI_API_KEY_3,
                 rpm: 15,
                 tasks: ['vision', 'text'],
-                endpoint: 'gemini-1.5-flash',
+                endpoint: 'gemini-flash-latest',
+                model: null
+            },
+            {
+                name: 'gemini4',
+                type: 'gemini',
+                key: process.env.GEMINI_API_KEY_4,
+                rpm: 15,
+                tasks: ['vision', 'text'],
+                endpoint: 'gemini-flash-latest',
+                model: null
+            },
+            {
+                name: 'gemini5',
+                type: 'gemini',
+                key: process.env.GEMINI_API_KEY_5,
+                rpm: 15,
+                tasks: ['vision', 'text'],
+                endpoint: 'gemini-flash-latest',
                 model: null
             },
             // Groq provider (text-only fallback)
@@ -125,17 +143,12 @@ class AIProviderManager {
     async callGemini(provider, prompt, imageBase64 = null) {
         await this.initializeGeminiProvider(provider);
         
-        const contents = [
-            {
-                role: 'user',
-                parts: [
-                    { text: prompt }
-                ]
-            }
+        const parts = [
+            { text: prompt }
         ];
 
         if (imageBase64) {
-            contents[0].parts.push({
+            parts.push({
                 inlineData: { 
                     mimeType: 'image/jpeg', 
                     data: imageBase64.replace(/^data:image\/[a-z]+;base64,/, '') 
@@ -143,7 +156,7 @@ class AIProviderManager {
             });
         }
 
-        const response = await provider.model.generateContent(contents);
+        const response = await provider.model.generateContent(parts);
         return response.response.text();
     }
 

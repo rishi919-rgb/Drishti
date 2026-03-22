@@ -1,39 +1,37 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { GeminiService } from '../services/gemini'
 import { speechService } from '../services/speech'
+import { apiService } from '../services/api'
+import { faceRecognitionService } from '../services/faceRecognition'
 
 interface UseContinuousScanOptions {
-  scanInterval?: number // milliseconds between scans (default: 2500ms)
-  maxImageWidth?: number // max width for captured images (default: 640)
-  maxImageHeight?: number // max height for captured images (default: 480)
-  imageQuality?: number // JPEG quality 0-1 (default: 0.7)
+  scanInterval?: number // milliseconds between scans (default: 1500ms)
+  maxImageWidth?: number 
+  maxImageHeight?: number 
+  imageQuality?: number 
 }
+
+type ScanMode = 'object' | 'path' | 'face';
 
 interface UseContinuousScanReturn {
   isScanning: boolean
   isAnalyzing: boolean
   lastAnalysis: string
   error: string
-  startScanning: () => void
+  currentMode: ScanMode
+  startScanning: (mode: ScanMode) => void
   stopScanning: () => void
   captureOnce: () => Promise<void>
-}
-
-interface DetectedObject {
-  class: string
-  score: number
-  bbox: [number, number, number, number]
-  position?: string
 }
 
 export const useContinuousScan = (
   captureImage: () => string | null,
   isCameraActive: boolean,
-  detectObjects: () => Promise<DetectedObject[] | undefined>,
+  _detectObjects: () => Promise<any[] | undefined>,
   options: UseContinuousScanOptions = {}
 ): UseContinuousScanReturn => {
   const {
-    scanInterval = 2500,
+    scanInterval = 1500,
     maxImageWidth = 640,
     maxImageHeight = 480,
     imageQuality = 0.7
@@ -43,19 +41,17 @@ export const useContinuousScan = (
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [lastAnalysis, setLastAnalysis] = useState('')
   const [error, setError] = useState('')
+  const [currentMode, setCurrentMode] = useState<ScanMode>('object')
 
-  const intervalRef = useRef<number | null>(null)
-  const isAnalyzingRef = useRef(false)
+  const timeoutRef = useRef<number | null>(null)
+  const isProcessingRef = useRef(false)
   const geminiService = useRef(new GeminiService())
 
-
   const compressImage = useCallback((base64Image: string): Promise<string> => {
-    return new Promise((resolve: (value: string) => void) => {
+    return new Promise((resolve) => {
       const img = new Image()
       img.onload = () => {
         const canvas = document.createElement('canvas')
-        
-        // Calculate new dimensions maintaining aspect ratio
         let { width, height } = img
         if (width > maxImageWidth || height > maxImageHeight) {
           const aspectRatio = width / height
@@ -67,144 +63,127 @@ export const useContinuousScan = (
             width = height * aspectRatio
           }
         }
-
         canvas.width = width
         canvas.height = height
-        
         const ctx = canvas.getContext('2d')
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height)
           resolve(canvas.toDataURL('image/jpeg', imageQuality))
         } else {
-          resolve(base64Image) // Fallback to original
+          resolve(base64Image)
         }
       }
-      img.onerror = () => resolve(base64Image) // Fallback to original
+      img.onerror = () => resolve(base64Image)
       img.src = base64Image
     })
   }, [maxImageWidth, maxImageHeight, imageQuality])
 
-  const analyzeImage = useCallback(async (imageData: string | null): Promise<void> => {
-    if (!imageData || isAnalyzingRef.current) {
-      return
-    }
+  const runScanLoop = useCallback(async (mode: ScanMode) => {
+    if (!isProcessingRef.current && isCameraActive) {
+      isProcessingRef.current = true
+      setIsAnalyzing(true)
 
-    isAnalyzingRef.current = true
-    setIsAnalyzing(true)
-    setError('')
-
-    try {
-      // Compress image before sending
-      const compressedImage = await compressImage(imageData)
-      
-      // Analyze with AI
-      const result = await geminiService.current.analyzeImage(
-        compressedImage,
-        "Describe this scene in 1-2 simple sentences for a blind person. If text is visible, read it. If Indian currency, identify denomination."
-      )
-
-      if (result.error) {
-        throw new Error(result.error)
-      }
-
-      // Format the analysis text
-      let analysisText = result.description
-      if (result.textFound) {
-        analysisText += ` Text found: ${result.textFound}`
-      }
-      if (result.currency) {
-        analysisText += ` Currency: ${result.currency}`
-      }
-
-      setLastAnalysis(analysisText)
-
-      // Speak the result
       try {
-        await speechService.speak(analysisText)
-      } catch (speechError) {
-        console.error('Speech error:', speechError)
-        // Continue even if speech fails
+        const imageData = captureImage()
+        if (imageData) {
+          if (mode === 'face') {
+            // Client-side Face Recognition
+            const videoElement = document.getElementById('camera-preview') as HTMLVideoElement;
+            if (videoElement) {
+              const name = await faceRecognitionService.recognizeFace(videoElement);
+              if (name) {
+                const text = `That's ${name}`;
+                setLastAnalysis(text);
+                speechService.speak(text);
+              } else {
+                // Fallback to object detection if no face recognized
+                await performObjectAnalysis(imageData);
+              }
+            }
+          } else if (mode === 'path') {
+            const result = await apiService.analyzePath({ imageBase64: imageData });
+            if (result.success && result.guidance) {
+              setLastAnalysis(result.guidance);
+              speechService.speak(result.guidance);
+            }
+          } else {
+            // Object Mode (Legacy/Proxy)
+            await performObjectAnalysis(imageData);
+          }
+        }
+      } catch (err) {
+        console.error("Scan loop error:", err);
+      } finally {
+        isProcessingRef.current = false
+        setIsAnalyzing(false)
+        
+        // Schedule next scan after a short delay (0.5s) if still scanning
+        if (timeoutRef.current !== null) {
+          timeoutRef.current = window.setTimeout(() => runScanLoop(mode), 500);
+        }
       }
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Analysis failed'
-      setError(errorMessage)
-      
-      // Speak the error
-      try {
-        await speechService.speak(`Error: ${errorMessage}`)
-      } catch (speechError) {
-        console.error('Speech error:', speechError)
-      }
-    } finally {
-      setIsAnalyzing(false)
-      isAnalyzingRef.current = false
     }
-  }, [compressImage])
+  }, [captureImage, isCameraActive]);
 
-  const captureOnce = useCallback(async (): Promise<void> => {
+  const performObjectAnalysis = async (imageData: string) => {
+    const compressed = await compressImage(imageData);
+    const result = await geminiService.current.analyzeImage(
+      compressed,
+      "Describe this scene in 1-2 simple sentences for a blind person. If text is visible, read it. If Indian currency, identify denomination."
+    );
+    
+    if (result.error) throw new Error(result.error);
+    
+    let text = result.description;
+    if (result.textFound) text += ` Text found: ${result.textFound}`;
+    if (result.currency) text += ` Currency: ${result.currency}`;
+    
+    setLastAnalysis(text);
+    speechService.speak(text);
+  };
+
+  const startScanning = useCallback((mode: ScanMode) => {
     if (!isCameraActive) {
       setError('Camera is not active')
       return
     }
-
-    const imageData = captureImage()
-    if (!imageData) {
-      setError('Failed to capture image')
-      return
-    }
-
-    await analyzeImage(imageData)
-  }, [isCameraActive, captureImage, analyzeImage])
-
-  const startScanning = useCallback(() => {
-    if (!isCameraActive) {
-      setError('Camera is not active. Cannot start scanning.')
-      return
-    }
-
     setIsScanning(true)
+    setCurrentMode(mode)
     setError('')
-
-    // Capture immediately on start
-    captureOnce()
-
-    // Then set up interval
-    intervalRef.current = window.setInterval(async () => {
-      if (!isAnalyzingRef.current) {
-        try {
-          const objs = await detectObjects();
-          if (objs && objs.length > 0) {
-            const uniqueObjs = Array.from(new Set(objs.map(o => `${o.position} ${o.class}`)));
-            const descriptions = uniqueObjs.join(', ');
-            await speechService.speak(descriptions);
-          }
-        } catch (e) {
-          console.error("Local object detection error:", e);
-        }
-      }
-    }, scanInterval)
-  }, [isCameraActive, captureOnce, scanInterval, detectObjects])
+    
+    // Initial call
+    timeoutRef.current = window.setTimeout(() => runScanLoop(mode), 100);
+  }, [isCameraActive, runScanLoop])
 
   const stopScanning = useCallback(() => {
     setIsScanning(false)
-    
-    if (intervalRef.current) {
-      window.clearInterval(intervalRef.current)
-      intervalRef.current = null
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
     }
-
-    // Stop any ongoing speech
     speechService.stop()
   }, [])
 
-  // Cleanup on unmount
+  const captureOnce = useCallback(async () => {
+    if (!isCameraActive) return
+    const imageData = captureImage()
+    if (imageData) {
+      isProcessingRef.current = true
+      setIsAnalyzing(true)
+      try {
+        await performObjectAnalysis(imageData)
+      } finally {
+        isProcessingRef.current = false
+        setIsAnalyzing(false)
+      }
+    }
+  }, [isCameraActive, captureImage])
+
   useEffect(() => {
     return () => {
-      if (intervalRef.current) {
-        window.clearInterval(intervalRef.current)
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current)
       }
-      speechService.stop()
     }
   }, [])
 
@@ -213,6 +192,7 @@ export const useContinuousScan = (
     isAnalyzing,
     lastAnalysis,
     error,
+    currentMode,
     startScanning,
     stopScanning,
     captureOnce

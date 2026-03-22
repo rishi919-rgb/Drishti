@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useCamera } from '../hooks/useCamera'
 import { useContinuousScan } from '../hooks/useContinuousScan'
 import { useObjectDetection } from '../hooks/useObjectDetection'
 import { speechService } from '../services/speech'
-import { apiService } from '../services/api'
+import { faceRecognitionService } from '../services/faceRecognition'
 
 interface User {
   id: string
@@ -34,6 +34,11 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   const [isObjectDetectionEnabled, setIsObjectDetectionEnabled] = useState(true)
   const [targetObject, setTargetObject] = useState<string>('')
   const [detectedObjectsList, setDetectedObjectsList] = useState<string[]>([])
+  
+  // Face Mode States
+  const [isFaceMode, setIsFaceMode] = useState(false)
+  const [isEnrolling, setIsEnrolling] = useState(false)
+  const [isFaceModelLoading, setIsFaceModelLoading] = useState(false)
 
   const {
     videoRef,
@@ -70,7 +75,8 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     error,
     startScanning,
     stopScanning,
-    captureOnce
+    captureOnce,
+    currentMode
   } = useContinuousScan(captureImage, isCameraActive, detectObjects, {
     scanInterval: 3000, // 3 seconds between scans
     maxImageWidth: 640,
@@ -78,50 +84,39 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     imageQuality: 0.7
   })
 
-  // Path Mode State
+  // Mode states (consolidation)
   const [isPathMode, setIsPathMode] = useState(false)
-  const [isPathScanning, setIsPathScanning] = useState(false)
-  const pathIntervalRef = useRef<number | null>(null)
 
-  const startPathScanning = () => {
-    if (!isCameraActive || !isOnline) return
-    setIsPathScanning(true)
+  const handleEnrollFace = async () => {
+    if (!isCameraActive) return
     
-    // Immediate capture
-    handlePathCapture()
-    
-    // Interval capture
-    pathIntervalRef.current = window.setInterval(handlePathCapture, 3000)
-  }
+    const name = window.prompt("Enter name for enrollment:");
+    if (!name) return
 
-  const stopPathScanning = () => {
-    setIsPathScanning(false)
-    if (pathIntervalRef.current) {
-      window.clearInterval(pathIntervalRef.current)
-      pathIntervalRef.current = null
-    }
-    speechService.stop()
-  }
-
-  const handlePathCapture = async () => {
-    const imageData = captureImage()
-    if (!imageData) return
-    
+    setIsEnrolling(true)
     try {
-      // Strip base64 metadata if necessary, but apiService should handle format
-      const result = await apiService.analyzePath({ imageBase64: imageData })
-      
-      if (result.success && result.guidance) {
-        setLastAnalysisData({
-          description: result.guidance,
-          timestamp: new Date().toISOString()
-        })
-        speechService.speak(result.guidance)
+      await speechService.speak(`Enrolling ${name}. Please look at the camera.`);
+      const videoElement = videoRef.current;
+      if (videoElement) {
+        await faceRecognitionService.enrollFace(name, videoElement);
+        speechService.speak(`Successfully enrolled ${name}`);
       }
-    } catch (err) {
-      console.error("Path AI error:", err)
+    } catch (err: any) {
+      speechService.speak(`Enrollment failed: ${err.message}`);
+    } finally {
+      setIsEnrolling(false)
     }
   }
+
+  const handleClearFaces = async () => {
+    if (window.confirm("Are you sure you want to delete all enrolled faces? This cannot be undone.")) {
+      const { faceStorageService } = await import('../services/faceStorage');
+      await faceStorageService.clearAllFaces();
+      await faceRecognitionService.refreshLabeledDescriptors();
+      speechService.speak("All enrolled faces have been deleted.");
+    }
+  }
+
 
   // Monitor online status
   useEffect(() => {
@@ -141,10 +136,22 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   useEffect(() => {
     startCamera()
     
+    const initModels = async () => {
+      setIsFaceModelLoading(true)
+      try {
+        await faceRecognitionService.loadModels()
+      } catch (err) {
+        console.error("Model load failed:", err)
+      } finally {
+        setIsFaceModelLoading(false)
+      }
+    }
+    
+    initModels()
+    
     return () => {
       stopCamera()
       stopScanning()
-      stopPathScanning()
       speechService.stop()
     }
   }, [])
@@ -206,298 +213,345 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-[#0a0a0f] text-slate-100 font-sans selection:bg-indigo-500/30">
+      {/* Background Glows */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full" />
+      </div>
+
       {/* Header */}
-      <header className="bg-gray-800 p-4">
-        <div className="container mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">Drishti</h1>
-            <p className="text-gray-400">AI Visual Assistant</p>
+      <header className="sticky top-0 z-50 border-b border-white/5 bg-[#0a0a0f]/80 backdrop-blur-xl">
+        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <span className="text-xl font-bold text-white">D</span>
+            </div>
+            <div>
+              <h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+                DRISHTI
+              </h1>
+              <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-indigo-400/80">AI Visual Empowerment</p>
+            </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            {/* Online Status Indicator */}
-            <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
-              isOnline ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                isOnline ? 'bg-green-400' : 'bg-red-400'
-              }`} />
-              {isOnline ? 'Online' : 'Offline'}
+          <div className="flex items-center gap-6">
+            {/* Status Indicators */}
+            <div className="hidden md:flex items-center gap-4">
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
+                isOnline 
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+                  : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+              } text-xs font-bold transition-all`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+                {isOnline ? 'NETWORK CONNECTED' : 'OFFLINE MODE'}
+              </div>
             </div>
 
-            {/* User Authentication */}
-            {user ? (
-              <div className="flex items-center gap-2">
+            {/* User Actions */}
+            <div className="flex items-center gap-3">
+              {user ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={onNavigateToHistory}
+                    className="hidden sm:flex h-10 items-center gap-2 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-medium transition-all"
+                  >
+                    <span>📚</span> History
+                  </button>
+                  <div className="h-10 w-[1px] bg-white/10 mx-1 hidden sm:block" />
+                  <div className="flex flex-col items-end mr-1 hidden sm:flex">
+                    <span className="text-xs font-bold text-slate-200">{user.name}</span>
+                    <button onClick={onLogout} className="text-[10px] text-slate-500 hover:text-rose-400 font-bold uppercase tracking-wider transition-colors">Sign Out</button>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 border border-white/20 flex items-center justify-center text-sm font-bold">
+                    {user.name.charAt(0)}
+                  </div>
+                </div>
+              ) : (
                 <button
-                  onClick={onNavigateToHistory}
-                  className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-sm"
+                  onClick={onShowAuth}
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/30 active:scale-95"
                 >
-                  📚 History
+                  Get Started
                 </button>
-                <span className="text-sm">Welcome, {user.name}</span>
-                <button
-                  onClick={onLogout}
-                  className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-sm"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={onShowAuth}
-                className="bg-blue-600 hover:bg-blue-700 px-4 py-1 rounded text-sm"
-              >
-                Login
-              </button>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       {/* Offline Banner */}
       {!isOnline && (
-        <div className="bg-red-600 text-white text-center py-2 px-4 shadow-md font-medium text-sm">
-          ⚠️ You are currently offline. Capture once is disabled. Only local object detection is available.
+        <div className="bg-rose-600/90 backdrop-blur-md text-white px-6 py-2.5 flex items-center justify-center gap-3 text-sm font-bold tracking-wide animate-in slide-in-from-top duration-500">
+          <span className="bg-white/20 p-1 rounded-md text-base">⚠️</span>
+          Network unavailable. Using local edge models for basic object detection.
         </div>
       )}
       
-      <main className="container mx-auto p-4">
-        <div className="max-w-2xl mx-auto">
-          {/* Camera Preview Section */}
-          <section className="mb-8">
-            <div className="bg-gray-800 rounded-lg p-4 relative">
-              <video 
-                ref={videoRef}
-                id="camera-preview"
-                className="w-full h-64 bg-black rounded"
-                autoPlay
-                playsInline
-                muted
-              />
-              
-              {/* Scanning Status Overlay */}
-              <div className="absolute top-6 left-6">
-                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
-                  isScanning 
-                    ? 'bg-blue-900 text-blue-200 animate-pulse' 
-                    : 'bg-gray-700 text-gray-300'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full ${
-                    isScanning ? 'bg-blue-400' : 'bg-gray-400'
-                  }`} />
-                  {isScanning ? 'Scanning...' : 'Stopped'}
+      <main className="container mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-7xl mx-auto">
+          
+          {/* Left Column: Visuals & Modes */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* Camera Viewport */}
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[2rem] blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
+              <div className="relative aspect-video bg-slate-900 rounded-[1.8rem] overflow-hidden border border-white/10 shadow-3xl">
+                <video 
+                  ref={videoRef}
+                  id="camera-preview"
+                  className="w-full h-full object-cover"
+                  autoPlay
+                  playsInline
+                  muted
+                />
+                
+                {/* Visual Overlays */}
+                <div className="absolute inset-x-0 top-0 p-6 flex justify-between items-start pointer-events-none">
+                  <div className={`px-4 py-2 rounded-2xl backdrop-blur-md border ${
+                    isScanning 
+                      ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-100' 
+                      : 'bg-slate-900/60 border-white/5 text-slate-400'
+                  } flex items-center gap-3 transition-all duration-500`}>
+                    <div className="relative h-2 w-2">
+                      <div className={`absolute inset-0 rounded-full ${isScanning ? 'bg-indigo-400 animate-ping' : 'bg-slate-500'}`} />
+                      <div className={`absolute inset-0 rounded-full ${isScanning ? 'bg-indigo-400' : 'bg-slate-500'}`} />
+                    </div>
+                    <span className="text-xs font-black tracking-widest uppercase">
+                      {isScanning ? `${currentMode.toUpperCase()} STREAM ACTIVE` : 'IDLE'}
+                    </span>
+                  </div>
+
+                  {isAnalyzing && (
+                    <div className="px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl text-white text-[10px] font-black tracking-widest uppercase animate-pulse">
+                      Processing AI...
+                    </div>
+                  )}
                 </div>
+
+                {!isCameraActive && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-sm">
+                    <div className="w-16 h-16 border-4 border-t-indigo-500 border-white/5 rounded-full animate-spin mb-4" />
+                    <p className="text-slate-400 font-bold tracking-widest uppercase text-xs">Awaiting Camera Sync</p>
+                  </div>
+                )}
+                
+                {cameraError && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-rose-950/90 p-8 text-center">
+                    <span className="text-4xl mb-4">🚫</span>
+                    <h3 className="text-xl font-bold text-rose-200 mb-2">Capture Interface Failed</h3>
+                    <p className="text-rose-300/80 text-sm max-w-xs">{cameraError}</p>
+                  </div>
+                )}
               </div>
-
-              {!isCameraActive && !cameraError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-800 rounded">
-                  <p className="text-gray-400">Starting camera...</p>
-                </div>
-              )}
             </div>
-          </section>
 
-          {/* Mode Toggle Section */}
-          <section className="mb-4">
-            <div className="flex justify-center gap-2 bg-gray-800 p-2 rounded-lg">
+            {/* Action Bar (Glassy) */}
+            <div className="flex flex-col sm:flex-row gap-4">
               <button
                 onClick={() => {
-                  setIsPathMode(false)
-                  if (isPathScanning) stopPathScanning()
+                  if (isScanning) stopScanning();
+                  else startScanning(isFaceMode ? 'face' : isPathMode ? 'path' : 'object');
                 }}
-                className={`flex-1 py-2 rounded font-semibold transition-colors ${
-                  !isPathMode ? 'bg-blue-600 text-white' : 'bg-transparent text-gray-400 hover:text-white'
-                }`}
+                disabled={!isCameraActive || !isOnline}
+                className={`flex-1 h-20 rounded-3xl flex items-center justify-center gap-4 text-xl font-black transition-all ${
+                  isScanning 
+                    ? 'bg-rose-600/20 border-2 border-rose-500/50 text-rose-300 shadow-[0_0_40px_rgba(225,29,72,0.1)]' 
+                    : 'bg-indigo-600 border-2 border-indigo-400/30 text-white shadow-[0_10px_40px_rgba(79,70,229,0.3)] hover:scale-[1.02] active:scale-95'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
               >
-                👁️ Object Mode
+                {isScanning ? (
+                  <><span className="text-2xl">⏹</span> Terminate Scan</>
+                ) : (
+                  <><span className="text-2xl">⚡</span> Ignite {isFaceMode ? 'Face' : isPathMode ? 'Path' : 'Vision'} AI</>
+                )}
               </button>
-              <button
-                onClick={() => {
-                  setIsPathMode(true)
-                  if (isScanning) stopScanning()
-                }}
-                className={`flex-1 py-2 rounded font-semibold transition-colors ${
-                  isPathMode ? 'bg-indigo-600 text-white' : 'bg-transparent text-gray-400 hover:text-white'
-                }`}
-              >
-                🚶 Path Mode
-              </button>
-            </div>
-          </section>
 
-          {/* Controls Section */}
-          <section className="mb-8">
-            <div className="flex justify-center gap-4">
-              {!isPathMode ? (
-                <>
-                  <button
-                    onClick={isScanning ? stopScanning : startScanning}
-                    disabled={!isCameraActive || !isOnline}
-                    className={`px-8 py-4 rounded-lg text-xl font-semibold transition-colors focus:outline-none focus:ring-4 ${
-                      isScanning 
-                        ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                        : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                    } disabled:bg-gray-600 disabled:cursor-not-allowed`}
-                  >
-                    {isScanning ? '⏹ Stop Scanning' : '▶ Start Object Scanning'}
-                  </button>
-                  
-                  <button
-                    onClick={captureOnce}
-                    disabled={isAnalyzing || !isCameraActive || !isOnline}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-6 py-4 rounded-lg text-xl font-semibold transition-colors focus:outline-none focus:ring-4 focus:ring-blue-500"
-                  >
-                    {isAnalyzing ? '🔄 Analyzing...' : '📸 Capture Scene Once'}
-                  </button>
-                </>
-              ) : (
+              {!isScanning && (
                 <button
-                  onClick={isPathScanning ? stopPathScanning : startPathScanning}
-                  disabled={!isCameraActive || !isOnline}
-                  className={`w-full px-8 py-4 rounded-lg text-xl font-semibold transition-colors focus:outline-none focus:ring-4 ${
-                    isPathScanning 
-                      ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                      : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
-                  } disabled:bg-gray-600 disabled:cursor-not-allowed`}
+                  onClick={captureOnce}
+                  disabled={isAnalyzing || !isCameraActive || !isOnline}
+                  className="px-10 h-20 bg-white/5 border-2 border-white/10 rounded-3xl text-sm font-black uppercase tracking-widest text-slate-300 hover:bg-white/10 hover:border-white/20 transition-all active:scale-95 disabled:opacity-30"
                 >
-                  {isPathScanning ? '⏹ Stop Path Guidance' : '🧭 Start Path Guidance'}
+                  {isAnalyzing ? '...' : '📸 Snapshot'}
                 </button>
               )}
             </div>
-          </section>
+          </div>
 
-          {/* Offline Models Settings */}
-          <section className="mb-8">
-            <div className="bg-gray-800 rounded-lg p-4">
-              <h3 className="text-lg font-semibold mb-4">Offline Detection</h3>
-              
-              <div className="space-y-4">
-                {/* Object Detection Toggle */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-300">Object Detection (COCO-SSD)</span>
-                    {isObjectModelLoading && (
-                      <span className="text-xs text-yellow-400">Loading...</span>
-                    )}
-                    {isObjectModelLoaded && (
-                      <span className="text-xs text-green-400">Ready</span>
-                    )}
-                  </div>
+          {/* Right Column: Intelligence & Settings */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Mode Controls Card */}
+            <div className="p-1 rounded-[2rem] bg-gradient-to-br from-indigo-500/20 via-slate-800 to-purple-500/20 shadow-2xl">
+              <div className="bg-[#11111a]/95 backdrop-blur-2xl rounded-[1.9rem] p-6">
+                <h3 className="text-[10px] font-black tracking-[0.3em] uppercase text-indigo-400 mb-6">Execution Mode</h3>
+                <div className="grid grid-cols-3 gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5">
                   <button
-                    onClick={() => setIsObjectDetectionEnabled(!isObjectDetectionEnabled)}
-                    className={`px-3 py-1 rounded text-sm transition-colors ${
-                      isObjectDetectionEnabled
-                        ? 'bg-green-600 hover:bg-green-700'
-                        : 'bg-gray-600 hover:bg-gray-700'
-                    }`}
+                    onClick={() => { setIsPathMode(false); setIsFaceMode(false); if (isScanning) stopScanning(); }}
+                    className={`flex flex-col items-center py-4 rounded-xl gap-2 transition-all ${!isPathMode && !isFaceMode ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                   >
-                    {isObjectDetectionEnabled ? 'ON' : 'OFF'}
+                    <span className="text-xl">👁️</span>
+                    <span className="text-[10px] font-black uppercase">Vision</span>
+                  </button>
+                  <button
+                    onClick={() => { setIsPathMode(true); setIsFaceMode(false); if (isScanning) stopScanning(); }}
+                    className={`flex flex-col items-center py-4 rounded-xl gap-2 transition-all ${isPathMode ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                  >
+                    <span className="text-xl">🚶</span>
+                    <span className="text-[10px] font-black uppercase">Path</span>
+                  </button>
+                  <button
+                    onClick={() => { setIsFaceMode(true); setIsPathMode(false); if (isScanning) stopScanning(); }}
+                    className={`flex flex-col items-center py-4 rounded-xl gap-2 transition-all ${isFaceMode ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+                  >
+                    <span className="text-xl">👤</span>
+                    <span className="text-[10px] font-black uppercase">Face</span>
                   </button>
                 </div>
 
-                {/* Target Object Input */}
-                {isObjectDetectionEnabled && (
+                {/* Face Enrollment (Contextual) */}
+                {isFaceMode && !isScanning && (
+                  <div className="mt-6 space-y-3 animate-in zoom-in-95 duration-300">
+                    <button
+                      onClick={handleEnrollFace}
+                      disabled={isEnrolling || !isCameraActive || isFaceModelLoading}
+                      className="w-full py-4 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-pink-600/20 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {isEnrolling ? 'Initializing Biometrics...' : '➕ Enroll New Identity'}
+                    </button>
+                    <button
+                      onClick={handleClearFaces}
+                      className="w-full py-2.5 text-[10px] text-slate-500 hover:text-rose-400 font-bold uppercase tracking-widest transition-colors"
+                    >
+                      Delete All Local Biometrics
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* AI Insights Card */}
+            <div className={`p-1 rounded-[2rem] bg-gradient-to-br from-indigo-500/20 to-purple-500/20 shadow-2xl transition-all duration-700 ${lastAnalysisData ? 'opacity-100 scale-100' : 'opacity-50 grayscale'}`}>
+              <div className="bg-[#11111a]/95 backdrop-blur-2xl rounded-[1.9rem] p-8 flex flex-col h-full min-h-[320px]">
+                <div className="flex justify-between items-start mb-6">
+                  <h3 className="text-[10px] font-black tracking-[0.3em] uppercase text-indigo-400">Intelligence Nexus</h3>
+                  {lastAnalysisData && (
+                    <span className="text-[10px] font-medium text-slate-500 uppercase tracking-tighter">
+                      {new Date(lastAnalysisData.timestamp).toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex-1">
+                  {lastAnalysisData ? (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-700">
+                      <p className="text-xl sm:text-2xl font-bold leading-tight text-white mb-6">
+                        {lastAnalysisData.description}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
+                      <div className="w-12 h-12 border-2 border-dashed border-slate-600 rounded-full mb-4 animate-[spin_10s_linear_infinite]" />
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Awaiting Signal</p>
+                    </div>
+                  )}
+                </div>
+
+                {lastAnalysisData && (
+                  <div className="grid grid-cols-2 gap-3 mt-auto">
+                    <button
+                      onClick={handleRepeatSpeech}
+                      className="py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                      <span className="text-lg">🔊</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest">Replay</span>
+                    </button>
+                    <button
+                      onClick={handleShare}
+                      className="py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                      <span className="text-lg">🔗</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest">Transmit</span>
+                    </button>
+                    {user && (
+                      <button
+                        onClick={handleSaveToHistory}
+                        className="col-span-2 py-4 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 rounded-2xl flex items-center justify-center gap-2 text-indigo-400 transition-all active:scale-95"
+                      >
+                        <span className="text-lg">💾</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Commit to History</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Local Detection (Edge) Stats */}
+            <div className="p-6 bg-black/40 border border-white/5 rounded-[2rem] backdrop-blur-md">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-[10px] font-black tracking-[0.3em] uppercase text-slate-500">Edge Detection Engine</h3>
+                <button
+                    onClick={() => setIsObjectDetectionEnabled(!isObjectDetectionEnabled)}
+                    className={`px-3 py-1 rounded-full text-[9px] font-black tracking-widest uppercase transition-all ${
+                      isObjectDetectionEnabled
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-slate-700/50 text-slate-400 border border-transparent'
+                    }`}
+                  >
+                    {isObjectDetectionEnabled ? 'ENABLED' : 'DISABLED'}
+                  </button>
+              </div>
+
+              {isObjectDetectionEnabled ? (
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-sm text-gray-400 mb-1">Target Object (optional)</label>
                     <input
                       type="text"
                       value={targetObject}
                       onChange={(e) => setTargetObject(e.target.value)}
-                      placeholder="e.g., person, bottle, phone"
-                      className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
+                      placeholder="SET FOCUS OBJECT (E.G. BOTTLE)"
+                      className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 focus:border-indigo-500/50 focus:outline-none text-[10px] font-black uppercase tracking-widest text-slate-300 placeholder:text-slate-600 transition-all"
                     />
-                    {targetObjectDetected && (
-                      <p className="text-green-400 text-sm mt-1">Target found!</p>
-                    )}
                   </div>
-                )}
 
-                {/* Detected Objects List */}
-                {detectedObjectsList.length > 0 && (
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">Detected Objects:</p>
+                  {targetObject && targetObjectDetected && (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 animate-bounce">
+                      <span className="text-xl">🎯</span>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">Target Visualized</span>
+                    </div>
+                  )}
+
+                  {detectedObjectsList.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {detectedObjectsList.map((obj, idx) => (
-                        <span key={idx} className="bg-gray-700 px-2 py-1 rounded text-xs">
+                        <span key={idx} className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest uppercase text-slate-400">
                           {obj}
                         </span>
                       ))}
                     </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* Results Section */}
-          <section className="mb-8">
-            {cameraError && (
-              <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-4">
-                <p className="text-red-200 font-semibold">Camera Error</p>
-                <p className="text-red-200">{cameraError}</p>
-              </div>
-            )}
-            
-            {error && (
-              <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-4">
-                <p className="text-red-200 font-semibold">Error</p>
-                <p className="text-red-200">{error}</p>
-              </div>
-            )}
-
-            {showSaveSuccess && (
-              <div className="bg-green-900 border border-green-700 rounded-lg p-4 mb-4">
-                <p className="text-green-200 font-semibold">Success</p>
-                <p className="text-green-200">Analysis saved to your history</p>
-              </div>
-            )}
-            
-            {lastAnalysisData && (
-              <div className="bg-gray-800 rounded-lg p-4">
-                <h2 className="text-xl font-semibold mb-2">Last Analysis</h2>
-                <p className="text-gray-300 text-lg leading-relaxed">{lastAnalysisData.description}</p>
-                
-                <div className="flex gap-4 mt-4 flex-wrap">
-                  <button
-                    onClick={handleRepeatSpeech}
-                    className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg font-semibold transition-colors focus:outline-none focus:ring-4 focus:ring-green-500"
-                  >
-                    🔄 Repeat Speech
-                  </button>
-                  
-                  <button
-                    onClick={handleShare}
-                    className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg font-semibold transition-colors focus:outline-none focus:ring-4 focus:ring-purple-500"
-                  >
-                    🔗 Share
-                  </button>
-                  
-                  {user && (
-                    <button
-                      onClick={handleSaveToHistory}
-                      className="bg-orange-600 hover:bg-orange-700 px-6 py-2 rounded-lg font-semibold transition-colors focus:outline-none focus:ring-4 focus:ring-orange-500"
-                    >
-                      💾 Save to History
-                    </button>
                   )}
                 </div>
-              </div>
-            )}
-
-            {!lastAnalysisData && !error && !cameraError && (
-              <div className="bg-gray-800 rounded-lg p-8 text-center">
-                <p className="text-gray-400 text-lg">
-                  {isScanning 
-                    ? 'Point your camera at anything. The app will automatically scan and describe what it sees every 3 seconds.'
-                    : 'Press "Start Continuous Scanning" to begin automatic analysis, or "Capture Once" for a single analysis.'
-                  }
+              ) : (
+                <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest leading-loose">
+                  Local object detection is offline. Enable to process visual hierarchy on device.
                 </p>
-              </div>
-            )}
-          </section>
+              )}
+            </div>
+          </div>
         </div>
       </main>
+
+      {/* Model Loading HUD */}
+      {isFaceModelLoading && (
+        <div className="fixed bottom-8 left-8 bg-black/80 backdrop-blur-2xl border border-indigo-500/30 p-4 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-left-4 duration-500 flex items-center gap-4 z-[100]">
+          <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <div>
+            <p className="text-[10px] font-black tracking-widest uppercase text-indigo-400">Loading Neural Models</p>
+            <p className="text-[9px] font-bold text-slate-500 uppercase">Synchronizing Face-API Shards</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

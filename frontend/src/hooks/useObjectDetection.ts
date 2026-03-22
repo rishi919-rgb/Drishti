@@ -56,7 +56,7 @@ export const useObjectDetection = ({
         await tf.ready() // Ensure tfjs is ready
         // Load COCO-SSD model (lightweight object detection)
         const model = await cocoSsd.load({
-          base: 'lite_mobilenet_v2' // Lightweight version for mobile
+          base: 'mobilenet_v2' // Compatible with TS types and resolves t3 error
         })
         
         modelRef.current = model

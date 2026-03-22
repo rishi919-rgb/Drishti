@@ -40,6 +40,14 @@ const MODELS = [
       'face_recognition_model-weights_manifest.json',
       'face_recognition_model-shard1'
     ]
+  },
+  // Tiny Face Detector
+  {
+    name: 'Tiny Face Detector',
+    files: [
+      'tiny_face_detector_model-weights_manifest.json',
+      'tiny_face_detector_model-shard1'
+    ]
   }
 ];
 
