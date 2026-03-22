@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCamera } from '../hooks/useCamera'
 import { useContinuousScan } from '../hooks/useContinuousScan'
 import { useObjectDetection } from '../hooks/useObjectDetection'
 import { speechService } from '../services/speech'
+import { apiService } from '../services/api'
 
 interface User {
   id: string
@@ -77,6 +78,50 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     imageQuality: 0.7
   })
 
+  // Path Mode State
+  const [isPathMode, setIsPathMode] = useState(false)
+  const [isPathScanning, setIsPathScanning] = useState(false)
+  const pathIntervalRef = useRef<number | null>(null)
+
+  const startPathScanning = () => {
+    if (!isCameraActive || !isOnline) return
+    setIsPathScanning(true)
+    
+    // Immediate capture
+    handlePathCapture()
+    
+    // Interval capture
+    pathIntervalRef.current = window.setInterval(handlePathCapture, 3000)
+  }
+
+  const stopPathScanning = () => {
+    setIsPathScanning(false)
+    if (pathIntervalRef.current) {
+      window.clearInterval(pathIntervalRef.current)
+      pathIntervalRef.current = null
+    }
+    speechService.stop()
+  }
+
+  const handlePathCapture = async () => {
+    const imageData = captureImage()
+    if (!imageData) return
+    
+    try {
+      // Strip base64 metadata if necessary, but apiService should handle format
+      const result = await apiService.analyzePath({ imageBase64: imageData })
+      
+      if (result.success && result.guidance) {
+        setLastAnalysisData({
+          description: result.guidance,
+          timestamp: new Date().toISOString()
+        })
+        speechService.speak(result.guidance)
+      }
+    } catch (err) {
+      console.error("Path AI error:", err)
+    }
+  }
 
   // Monitor online status
   useEffect(() => {
@@ -99,6 +144,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     return () => {
       stopCamera()
       stopScanning()
+      stopPathScanning()
       speechService.stop()
     }
   }, [])
@@ -150,9 +196,9 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   }
 
   const handleRepeatSpeech = async () => {
-    if (lastAnalysis) {
+    if (lastAnalysisData && lastAnalysisData.description) {
       try {
-        await speechService.speak(lastAnalysis)
+        await speechService.speak(lastAnalysisData.description)
       } catch (err) {
         console.error('Speech error:', err)
       }
@@ -252,28 +298,72 @@ export const ScanPage: React.FC<ScanPageProps> = ({
             </div>
           </section>
 
+          {/* Mode Toggle Section */}
+          <section className="mb-4">
+            <div className="flex justify-center gap-2 bg-gray-800 p-2 rounded-lg">
+              <button
+                onClick={() => {
+                  setIsPathMode(false)
+                  if (isPathScanning) stopPathScanning()
+                }}
+                className={`flex-1 py-2 rounded font-semibold transition-colors ${
+                  !isPathMode ? 'bg-blue-600 text-white' : 'bg-transparent text-gray-400 hover:text-white'
+                }`}
+              >
+                👁️ Object Mode
+              </button>
+              <button
+                onClick={() => {
+                  setIsPathMode(true)
+                  if (isScanning) stopScanning()
+                }}
+                className={`flex-1 py-2 rounded font-semibold transition-colors ${
+                  isPathMode ? 'bg-indigo-600 text-white' : 'bg-transparent text-gray-400 hover:text-white'
+                }`}
+              >
+                🚶 Path Mode
+              </button>
+            </div>
+          </section>
+
           {/* Controls Section */}
           <section className="mb-8">
             <div className="flex justify-center gap-4">
-              <button
-                onClick={isScanning ? stopScanning : startScanning}
-                disabled={!isCameraActive || !isOnline}
-                className={`px-8 py-4 rounded-lg text-xl font-semibold transition-colors focus:outline-none focus:ring-4 ${
-                  isScanning 
-                    ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                    : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                } disabled:bg-gray-600 disabled:cursor-not-allowed`}
-              >
-                {isScanning ? '⏹ Stop Scanning' : '▶ Start Continuous Scanning'}
-              </button>
-              
-              <button
-                onClick={captureOnce}
-                disabled={isAnalyzing || !isCameraActive || !isOnline}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-6 py-4 rounded-lg text-xl font-semibold transition-colors focus:outline-none focus:ring-4 focus:ring-blue-500"
-              >
-                {isAnalyzing ? '🔄 Analyzing...' : '📸 Capture Once'}
-              </button>
+              {!isPathMode ? (
+                <>
+                  <button
+                    onClick={isScanning ? stopScanning : startScanning}
+                    disabled={!isCameraActive || !isOnline}
+                    className={`px-8 py-4 rounded-lg text-xl font-semibold transition-colors focus:outline-none focus:ring-4 ${
+                      isScanning 
+                        ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+                        : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                    } disabled:bg-gray-600 disabled:cursor-not-allowed`}
+                  >
+                    {isScanning ? '⏹ Stop Scanning' : '▶ Start Object Scanning'}
+                  </button>
+                  
+                  <button
+                    onClick={captureOnce}
+                    disabled={isAnalyzing || !isCameraActive || !isOnline}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-6 py-4 rounded-lg text-xl font-semibold transition-colors focus:outline-none focus:ring-4 focus:ring-blue-500"
+                  >
+                    {isAnalyzing ? '🔄 Analyzing...' : '📸 Capture Scene Once'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={isPathScanning ? stopPathScanning : startPathScanning}
+                  disabled={!isCameraActive || !isOnline}
+                  className={`w-full px-8 py-4 rounded-lg text-xl font-semibold transition-colors focus:outline-none focus:ring-4 ${
+                    isPathScanning 
+                      ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+                      : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
+                  } disabled:bg-gray-600 disabled:cursor-not-allowed`}
+                >
+                  {isPathScanning ? '⏹ Stop Path Guidance' : '🧭 Start Path Guidance'}
+                </button>
+              )}
             </div>
           </section>
 
@@ -363,10 +453,10 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               </div>
             )}
             
-            {lastAnalysis && (
+            {lastAnalysisData && (
               <div className="bg-gray-800 rounded-lg p-4">
                 <h2 className="text-xl font-semibold mb-2">Last Analysis</h2>
-                <p className="text-gray-300 text-lg leading-relaxed">{lastAnalysis}</p>
+                <p className="text-gray-300 text-lg leading-relaxed">{lastAnalysisData.description}</p>
                 
                 <div className="flex gap-4 mt-4 flex-wrap">
                   <button
@@ -395,7 +485,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
               </div>
             )}
 
-            {!lastAnalysis && !error && !cameraError && (
+            {!lastAnalysisData && !error && !cameraError && (
               <div className="bg-gray-800 rounded-lg p-8 text-center">
                 <p className="text-gray-400 text-lg">
                   {isScanning 

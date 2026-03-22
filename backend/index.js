@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import drishtiRoutes from './routes/drishtiRoutes.js';
+import pathRoutes from './routes/path.js';
 
 dotenv.config();
 
@@ -14,13 +15,14 @@ const allowedOrigins = [
    'http://localhost:5174', // Drishti frontend
    'http://localhost:5175', // Drishti frontend
    'http://localhost:5176', // Drishti frontend
+   'http://localhost:5177', // Drishti frontend
    'https://drishti.netlify.app', // Production frontend
 ];
 
 app.use(cors({
    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, Postman)
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests with no origin (mobile apps, curl, Postman), explicitly allowed origins, and any localhost port
+      if (!origin || allowedOrigins.includes(origin) || /^http:\/\/localhost:\d+$/.test(origin)) {
          callback(null, true);
       } else {
          callback(new Error(`CORS blocked for origin: ${origin}`));
@@ -37,6 +39,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/drishti', drishtiRoutes);
+app.use('/api/drishti/path', pathRoutes);
 
 // MongoDB Connection
 const connectDB = async () => {

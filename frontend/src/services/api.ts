@@ -110,6 +110,14 @@ class ApiService {
     })
   }
 
+  // Analyze path (no auth required)
+  async analyzePath(request: DrishtiAnalysisRequest): Promise<{success: boolean, guidance: string, objects: any[]}> {
+    return this.request<{success: boolean, guidance: string, objects: any[]}>('/path', {
+      method: 'POST',
+      body: JSON.stringify(request)
+    })
+  }
+
   // Save analysis to history (auth required)
   async saveAnalysis(request: DrishtiSaveRequest): Promise<DrishtiSaveResponse> {
     if (this.useMock) {
