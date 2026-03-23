@@ -5,6 +5,7 @@ class AIProviderManager {
     constructor() {
         this.providers = this.initializeProviders();
         this.usage = new Map(); // Track usage: `${providerName}:${minute}` -> count
+        this.currentProviderIndex = 0;
         this.cleanupInterval = setInterval(() => this.cleanupOldUsage(), 60000); // Cleanup every minute
     }
 
@@ -124,13 +125,16 @@ class AIProviderManager {
 
         // Prefer vision providers for vision tasks, fallback to text-only if needed
         if (taskType === 'vision') {
-            const visionProvider = availableProviders.find(p => p.type === 'gemini');
-            if (visionProvider) return visionProvider;
+            const geminiProviders = availableProviders.filter(p => p.type === 'gemini');
+            if (geminiProviders.length > 0) {
+                this.currentProviderIndex = (this.currentProviderIndex + 1) % geminiProviders.length;
+                return geminiProviders[this.currentProviderIndex];
+            }
         }
 
-        // Round-robin selection among available providers
-        const provider = availableProviders[Math.floor(Math.random() * availableProviders.length)];
-        return provider;
+        // Round-robin selection among text-only providers
+        this.currentProviderIndex = (this.currentProviderIndex + 1) % availableProviders.length;
+        return availableProviders[this.currentProviderIndex];
     }
 
     async initializeGeminiProvider(provider) {

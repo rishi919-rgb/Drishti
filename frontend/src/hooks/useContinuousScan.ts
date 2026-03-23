@@ -21,7 +21,7 @@ interface UseContinuousScanReturn {
   currentMode: ScanMode
   startScanning: (mode: ScanMode) => void
   stopScanning: () => void
-  captureOnce: () => Promise<void>
+  captureOnce: (mode: ScanMode) => Promise<void>
 }
 
 export const useContinuousScan = (
@@ -45,6 +45,7 @@ export const useContinuousScan = (
 
   const timeoutRef = useRef<number | null>(null)
   const isProcessingRef = useRef(false)
+  const consecutiveErrorsRef = useRef(0)
   const geminiService = useRef(new GeminiService())
 
   const compressImage = useCallback((base64Image: string): Promise<string> => {
@@ -94,7 +95,7 @@ export const useContinuousScan = (
               if (name) {
                 const text = `That's ${name}`;
                 setLastAnalysis(text);
-                speechService.speak(text);
+                await speechService.speak(text);
               } else {
                 // Fallback to object detection if no face recognized
                 await performObjectAnalysis(imageData);
@@ -104,26 +105,28 @@ export const useContinuousScan = (
             const result = await apiService.analyzePath({ imageBase64: imageData });
             if (result.success && result.guidance) {
               setLastAnalysis(result.guidance);
-              speechService.speak(result.guidance);
+              await speechService.speak(result.guidance);
             }
           } else {
             // Object Mode (Legacy/Proxy)
             await performObjectAnalysis(imageData);
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Scan loop error:", err);
+        setError(`Error: ${err.message || 'Network failure'}`);
+        // Allow loop to continue automatically via finally block
       } finally {
         isProcessingRef.current = false
         setIsAnalyzing(false)
         
-        // Schedule next scan after a short delay (0.5s) if still scanning
+        // Schedule next scan after delay if still scanning
         if (timeoutRef.current !== null) {
-          timeoutRef.current = window.setTimeout(() => runScanLoop(mode), 500);
+          timeoutRef.current = window.setTimeout(() => runScanLoop(mode), scanInterval);
         }
       }
     }
-  }, [captureImage, isCameraActive]);
+  }, [captureImage, isCameraActive, scanInterval]);
 
   const performObjectAnalysis = async (imageData: string) => {
     const compressed = await compressImage(imageData);
@@ -139,7 +142,7 @@ export const useContinuousScan = (
     if (result.currency) text += ` Currency: ${result.currency}`;
     
     setLastAnalysis(text);
-    speechService.speak(text);
+    await speechService.speak(text);
   };
 
   const startScanning = useCallback((mode: ScanMode) => {
@@ -164,14 +167,36 @@ export const useContinuousScan = (
     speechService.stop()
   }, [])
 
-  const captureOnce = useCallback(async () => {
+  const captureOnce = useCallback(async (mode: ScanMode) => {
     if (!isCameraActive) return
     const imageData = captureImage()
     if (imageData) {
       isProcessingRef.current = true
       setIsAnalyzing(true)
       try {
-        await performObjectAnalysis(imageData)
+        if (mode === 'face') {
+          const videoElement = document.getElementById('camera-preview') as HTMLVideoElement;
+          if (videoElement) {
+            const name = await faceRecognitionService.recognizeFace(videoElement);
+            if (name) {
+              const text = `That's ${name}`;
+              setLastAnalysis(text);
+              await speechService.speak(text);
+            } else {
+              await performObjectAnalysis(imageData);
+            }
+          }
+        } else if (mode === 'path') {
+          const result = await apiService.analyzePath({ imageBase64: imageData });
+          if (result.success && result.guidance) {
+            setLastAnalysis(result.guidance);
+            await speechService.speak(result.guidance);
+          }
+        } else {
+          await performObjectAnalysis(imageData);
+        }
+      } catch (err: any) {
+        setError(`Error: ${err.message || 'Capture failed'}`);
       } finally {
         isProcessingRef.current = false
         setIsAnalyzing(false)

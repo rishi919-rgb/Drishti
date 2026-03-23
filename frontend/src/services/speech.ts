@@ -4,6 +4,7 @@ class SpeechService {
   private isSupported: boolean
   private queue: { text: string; options: any; resolve: () => void; reject: (err: Error) => void }[] = []
   private processing: boolean = false
+  private currentUtterance: SpeechSynthesisUtterance | null = null
 
   constructor() {
     this.synth = window.speechSynthesis
@@ -44,30 +45,48 @@ class SpeechService {
     }
 
     const { text, options, resolve, reject } = current;
-    const utterance = new SpeechSynthesisUtterance(text);
+    this.currentUtterance = new SpeechSynthesisUtterance(text);
       
-    utterance.rate = options.rate || 0.9 
-    utterance.pitch = options.pitch || 1.0
-    utterance.volume = options.volume || 1.0
+    this.currentUtterance.rate = options.rate || 0.9 
+    this.currentUtterance.pitch = options.pitch || 1.0
+    this.currentUtterance.volume = options.volume || 1.0
     
     const voice = this.getPreferredVoice()
     if (voice) {
-      utterance.voice = voice
+      this.currentUtterance.voice = voice
     }
 
-    utterance.addEventListener('end', () => {
+    let timeoutId: number | null = null;
+
+    const cleanup = () => {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      this.currentUtterance = null;
       this.processing = false;
+      this.processQueue();
+    };
+
+    this.currentUtterance.addEventListener('end', () => {
+      cleanup();
       resolve();
-      this.processQueue();
     });
 
-    utterance.addEventListener('error', (event) => {
-      this.processing = false;
-      reject(new Error(`Speech error: ${event.error}`));
-      this.processQueue();
+    this.currentUtterance.addEventListener('error', (event) => {
+      cleanup();
+      resolve(); // Resolve anyway on error to not block the loop
     });
 
-    this.synth.speak(utterance);
+    // 5 second fallback timeout
+    timeoutId = window.setTimeout(() => {
+      console.warn('Speech synthesis timeout fallback triggered');
+      this.synth.cancel(); // Try to clear the stuck speech
+      cleanup();
+      resolve();
+    }, 5000);
+
+    this.synth.speak(this.currentUtterance);
   }
 
   speak(text: string, options: {
@@ -77,18 +96,18 @@ class SpeechService {
   } = {}): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.isSupported) {
-        reject(new Error('Text-to-speech not supported in this browser'))
-        return
+        resolve(); // Resolve to not block
+        return;
       }
 
       if (!text || text.trim() === '') {
-        resolve()
-        return
+        resolve();
+        return;
       }
 
       this.queue.push({ text, options, resolve, reject });
       this.processQueue();
-    })
+    });
   }
 
   stop(): void {

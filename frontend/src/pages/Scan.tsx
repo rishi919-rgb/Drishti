@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useCamera } from '../hooks/useCamera'
 import { useContinuousScan } from '../hooks/useContinuousScan'
 import { useObjectDetection } from '../hooks/useObjectDetection'
+import { useVoiceCommands } from '../hooks/useVoiceCommands'
 import { speechService } from '../services/speech'
 import { faceRecognitionService } from '../services/faceRecognition'
 
@@ -86,6 +87,51 @@ export const ScanPage: React.FC<ScanPageProps> = ({
 
   // Mode states (consolidation)
   const [isPathMode, setIsPathMode] = useState(false)
+  const [manualCommand, setManualCommand] = useState('')
+
+  // Command Parsing
+  const handleVoiceCommand = useCallback((command: string) => {
+    const speech = command.toLowerCase();
+    console.log("Voice Command Recognized:", speech);
+
+    if (speech.includes('start scanning')) {
+      speechService.speak('Starting continuous scan');
+      startScanning(isFaceMode ? 'face' : isPathMode ? 'path' : 'object');
+    } else if (speech.includes('stop scanning')) {
+      speechService.speak('Stopping scan');
+      stopScanning();
+    } else if (speech.includes('capture once') || speech.includes("what's in front of me") || speech.includes("what is in front of me")) {
+      speechService.speak('Taking snapshot');
+      captureOnce(isFaceMode ? 'face' : isPathMode ? 'path' : 'object');
+    } else if (speech.includes('object mode') || speech.includes('vision mode')) {
+      setIsFaceMode(false);
+      setIsPathMode(false);
+      speechService.speak('Switching to vision mode');
+      if (isScanning) stopScanning();
+    } else if (speech.includes('path mode')) {
+      setIsPathMode(true);
+      setIsFaceMode(false);
+      speechService.speak('Switching to path mode');
+      if (isScanning) stopScanning();
+    } else if (speech.includes('face mode')) {
+      setIsFaceMode(true);
+      setIsPathMode(false);
+      speechService.speak('Switching to face mode');
+      if (isScanning) stopScanning();
+    }
+  }, [isFaceMode, isPathMode, isScanning, startScanning, stopScanning, captureOnce]);
+
+  const { isListening, isStarting, isContinuous, isSupported: isVoiceSupported, micError, startListening, stopListening, resetError, toggleContinuousMode } = useVoiceCommands({
+    onCommand: handleVoiceCommand
+  });
+
+  const handleManualCommandSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (manualCommand.trim()) {
+      handleVoiceCommand(manualCommand.trim());
+      setManualCommand('');
+    }
+  };
 
   const handleEnrollFace = async () => {
     if (!isCameraActive) return
@@ -369,7 +415,7 @@ export const ScanPage: React.FC<ScanPageProps> = ({
 
               {!isScanning && (
                 <button
-                  onClick={captureOnce}
+                  onClick={() => captureOnce(isFaceMode ? 'face' : isPathMode ? 'path' : 'object')}
                   disabled={isAnalyzing || !isCameraActive || !isOnline}
                   className="px-10 h-20 bg-white/5 border-2 border-white/10 rounded-3xl text-sm font-black uppercase tracking-widest text-slate-300 hover:bg-white/10 hover:border-white/20 transition-all active:scale-95 disabled:opacity-30"
                 >
@@ -427,6 +473,84 @@ export const ScanPage: React.FC<ScanPageProps> = ({
                     </button>
                   </div>
                 )}
+
+                {/* Voice & Manual Command Controls */}
+                <div className="mt-4 space-y-3">
+                  {isVoiceSupported ? (
+                    <>
+                      {micError && (
+                        <div className="px-4 py-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">
+                          <div className="flex items-start gap-3 mb-3">
+                            <span className="text-sm">⚠️</span>
+                            <p className="text-[9px] font-bold text-rose-400 uppercase tracking-widest leading-loose">
+                              {micError}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => { resetError(); startListening(); }}
+                            className="w-full py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-lg text-xs font-black uppercase tracking-widest transition-colors"
+                          >
+                            Retry Connection
+                          </button>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => isListening || isStarting ? stopListening() : startListening(false)}
+                        disabled={isListening || isStarting || !!micError}
+                        className={`w-full py-4 flex items-center justify-center gap-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${
+                          !!micError 
+                            ? 'opacity-50 cursor-not-allowed bg-slate-800 border-slate-700'
+                            : isListening || isStarting
+                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50 shadow-[0_0_30px_rgba(225,29,72,0.3)] animate-pulse'
+                            : 'bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:shadow-[0_0_20px_rgba(79,70,229,0.2)] active:scale-95'
+                        }`}
+                      >
+                        <span className="text-xl">🎙️</span>
+                        {isStarting ? 'Waiting for Mic...' : isListening ? (isContinuous ? 'Listening Continuously...' : 'Listening...') : 'Single Command'}
+                      </button>
+
+                      {/* Continuous Voice Toggle */}
+                      <button
+                        onClick={toggleContinuousMode}
+                        className={`w-full py-2.5 flex items-center justify-center gap-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                          isContinuous
+                            ? 'bg-green-500/20 border-green-500/30 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]'
+                            : 'bg-black/30 border-white/5 text-slate-500 hover:text-slate-400'
+                        }`}
+                      >
+                         <span className={isContinuous ? "animate-pulse" : ""}>🔄</span>
+                         {isContinuous ? "Continuous Voice: ON" : "Continuous Voice: OFF"}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="px-4 py-3 bg-slate-800/50 border border-white/5 rounded-2xl flex items-center gap-3">
+                      <span className="text-lg opacity-50">🎙️</span>
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                        Voice Commands Unsupported
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Text Fallback */}
+                  {(!isVoiceSupported || micError) && (
+                    <form onSubmit={handleManualCommandSubmit} className="flex gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <input
+                        type="text"
+                        value={manualCommand}
+                        onChange={(e) => setManualCommand(e.target.value)}
+                        placeholder="TYPE COMMAND (E.G. START SCANNING)"
+                        className="flex-1 px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:border-indigo-500/50 focus:outline-none text-[10px] font-black uppercase tracking-widest text-slate-300 placeholder:text-slate-600 transition-all"
+                      />
+                      <button 
+                        type="submit"
+                        disabled={!manualCommand.trim()}
+                        className="px-4 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 border border-indigo-500/30 rounded-xl font-black text-[10px] uppercase disabled:opacity-30 transition-all"
+                      >
+                        SEND
+                      </button>
+                    </form>
+                  )}
+                </div>
               </div>
             </div>
 
