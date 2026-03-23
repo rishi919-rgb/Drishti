@@ -128,17 +128,6 @@ npm run dev
    - "Switch to Path mode".
    - "Capture once" or "What's in front of me?".
 
----
-
-## 🎤 Demo Script (Judges Presentation)
-
-**[0:00 - Intro]** "Hello Judges, this is Drishti. For a visually impaired person, a chair isn't just an object; it's a potential obstacle. Drishti provides the vision they lack."
-
-**[0:45 - Feature 1]** "Notice how the voice engine is continuous. I say 'Start Scanning,' and the AI immediately describes the room: 'A brown desk with a laptop and a person sitting.'"
-
-**[1:30 - Feature 2]** "In Path Mode, we switch from LLMs to local YOLOv8 and MiDaS. The system calculates depth instantly: 'Person 1 meter ahead, clear path to the left.'"
-
-**[2:15 - Feature 3]** "Even identities are recognized. I can enroll a face once, and next time they enter the room, Drishti announces their name locally, respecting privacy."
 
 ---
 
