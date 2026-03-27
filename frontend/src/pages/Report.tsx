@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Volume2, Share2, ArrowLeft, Clock, FileText, Globe, Search, CheckCircle } from 'lucide-react'
 import { apiService } from '../services/api'
 import { speechService } from '../services/speech'
+import { announce } from '../utils/announce'
+import { useHaptic } from '../hooks/useHaptic'
 
 interface ReportData {
   description: string
@@ -16,7 +20,10 @@ export default function ReportPage() {
   const [report, setReport] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  
+  const [isCopied, setIsCopied] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+
+  const { tap, confirm } = useHaptic()
 
   useEffect(() => {
     if (publicId) {
@@ -28,172 +35,282 @@ export default function ReportPage() {
     try {
       setLoading(true)
       setError('')
-      
       const data = await apiService.getReport(publicId!)
       setReport(data)
+      announce(`Report loaded: ${data.description.substring(0, 80)}`)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Report not found'
+      const errorMessage = err instanceof Error ? err.message : 'Analysis pulse not found'
       setError(errorMessage)
+      announce(`Error: ${errorMessage}`, 'assertive')
     } finally {
       setLoading(false)
     }
   }
 
   const handleSpeak = async () => {
-    if (!report) return
+    if (!report || isSpeaking) return
+    tap()
 
     let textToSpeak = report.description
-    if (report.detectedText) {
-      textToSpeak += ` Text found: ${report.detectedText}`
-    }
-    if (report.currency) {
-      textToSpeak += ` Currency: ${report.currency}`
-    }
+    if (report.detectedText) textToSpeak += `. Recognized text: ${report.detectedText}`
+    if (report.currency)     textToSpeak += `. Monetary value detected: ${report.currency}`
 
     try {
+      setIsSpeaking(true)
+      announce('Reading report aloud…')
       await speechService.speak(textToSpeak)
     } catch (err) {
-      console.error('Speech error:', err)
+      console.error('Neural speech error:', err)
+    } finally {
+      setIsSpeaking(false)
     }
   }
 
   const handleShare = async () => {
     if (!report) return
-
+    tap()
     const shareUrl = window.location.href
-    
     try {
       await navigator.clipboard.writeText(shareUrl)
-      
-      // Show success feedback
-      const button = document.querySelector('[data-share-button]') as HTMLButtonElement
-      if (button) {
-        const originalText = button.textContent
-        button.textContent = '✓ Copied!'
-        button.classList.add('bg-green-600')
-        
-        setTimeout(() => {
-          button.textContent = originalText
-          button.classList.remove('bg-green-600')
-        }, 2000)
-      }
+      confirm()
+      setIsCopied(true)
+      await speechService.speak('Broadcast link copied to clipboard')
+      announce('Share link copied to clipboard')
+      setTimeout(() => setIsCopied(false), 3000)
     } catch (err) {
-      console.error('Failed to copy share link:', err)
+      console.error('Transmission error:', err)
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <p className="text-gray-400">Loading report...</p>
+      <div
+        role="status"
+        aria-label="Loading report"
+        className="min-h-screen bg-dark flex flex-col items-center justify-center p-6 text-center"
+      >
+        <motion.div 
+          animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="w-16 h-16 rounded-2xl bg-accent/20 border border-accent/40 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(249,115,22,0.1)]"
+          aria-hidden="true"
+        >
+          <Search className="text-accent w-8 h-8" />
+        </motion.div>
+        <p className="text-slate-500 font-black text-xs uppercase tracking-[0.5em] animate-pulse">
+          Synchronizing Neural Data…
+        </p>
       </div>
     )
   }
 
   if (error || !report) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Report Not Found</h1>
-          <p className="text-gray-400 mb-4">{error || 'This report could not be found.'}</p>
-          <a
-            href="/"
-            className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg inline-block"
+      <div className="min-h-screen bg-dark flex items-center justify-center p-6">
+        <motion.div 
+          role="alert"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="glass-morphism p-10 max-w-md text-center border-rose-500/20"
+        >
+          <div className="w-16 h-16 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto mb-6" aria-hidden="true">
+            <span className="text-3xl">🚫</span>
+          </div>
+          <h1 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">Pulse Missing</h1>
+          <p className="text-slate-500 mb-8 font-medium">{error || 'This analysis link is inactive or restricted.'}</p>
+          <Link
+            to="/"
+            className="w-full py-4 bg-accent hover:bg-orange-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-accent/20 transition-all inline-block"
           >
-            Go to Drishti
-          </a>
-        </div>
+            Re-initiate Drishti
+          </Link>
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      <header className="bg-gray-800 p-4">
-        <div className="container mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">Drishti Report</h1>
-            <p className="text-gray-400">AI Visual Analysis</p>
+    <div className="min-h-screen bg-dark text-white p-4 md:p-8 relative overflow-hidden">
+      {/* Background Decor */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-30" aria-hidden="true">
+        <div className="absolute top--[20%] left-[-10%] w-[50%] h-[50%] bg-accent/5 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/5 blur-[120px] rounded-full" />
+      </div>
+
+      <div className="container mx-auto max-w-3xl relative z-10">
+        <motion.header 
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-accent flex items-center justify-center shadow-lg shadow-accent/20" aria-hidden="true">
+              <FileText className="text-white w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+                Analysis Pulse
+              </h1>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-accent/80">Public Broadcast Interface</p>
+            </div>
           </div>
           
-          <a
-            href="/"
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
+          <Link
+            to="/"
+            className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl group active:scale-95"
+            aria-label="Return to Drishti scanner"
           >
-            ← Back to Drishti
-          </a>
-        </div>
-      </header>
+            <ArrowLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" aria-hidden="true" />
+            Return to Core
+          </Link>
+        </motion.header>
 
-      <main className="container mx-auto p-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-gray-800 rounded-lg p-6">
-            {/* Report Header */}
-            <div className="mb-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-semibold">Analysis Results</h2>
-                <div className="text-sm text-gray-400">
-                  Report ID: {report.publicId}
+        <motion.main
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <div className="glass-morphism p-8 md:p-12 border-white/5">
+            {/* Report Metadata */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-10 pb-10 border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center" aria-hidden="true">
+                  <Globe className="text-slate-400 w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Resource Identifier</p>
+                  <p className="text-sm font-bold text-white tracking-widest uppercase">{report.publicId}</p>
                 </div>
               </div>
               
-              <p className="text-sm text-gray-500">
-                Analyzed on {new Date(report.createdAt).toLocaleString()}
-              </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center" aria-hidden="true">
+                  <Clock className="text-slate-400 w-5 h-5" />
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Timestamp</p>
+                  <time
+                    dateTime={report.createdAt}
+                    className="text-sm font-bold text-white tracking-widest uppercase"
+                  >
+                    {new Date(report.createdAt).toLocaleDateString()}
+                  </time>
+                </div>
+              </div>
             </div>
 
             {/* Analysis Content */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-medium mb-2">Scene Description</h3>
-                <p className="text-gray-300 leading-relaxed">{report.description}</p>
+            <div className="space-y-10">
+              <section aria-labelledby="report-description-heading">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-4 bg-accent rounded-full" aria-hidden="true" />
+                  <h2 id="report-description-heading" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                    Neural Interpretation
+                  </h2>
+                </div>
+                <p className="text-xl md:text-2xl font-bold leading-tight text-white/90 selection:bg-accent/30 tracking-tight">
+                  {report.description}
+                </p>
+              </section>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {report.detectedText && (
+                  <motion.section 
+                    aria-labelledby="ocr-heading"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="p-6 bg-black/40 border border-white/5 rounded-[2rem]"
+                  >
+                    <h3 id="ocr-heading" className="text-[10px] font-black uppercase tracking-[0.3em] text-accent mb-4">
+                      OCR Extracted Text
+                    </h3>
+                    <p className="text-sm font-bold text-slate-300 leading-relaxed break-words">{report.detectedText}</p>
+                  </motion.section>
+                )}
+
+                {report.currency && (
+                  <motion.section 
+                    aria-labelledby="currency-heading"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="p-6 bg-black/40 border border-white/5 rounded-[2rem]"
+                  >
+                    <h3 id="currency-heading" className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-400 mb-4">
+                      Currency Valorization
+                    </h3>
+                    <p className="text-sm font-bold text-slate-300 tracking-widest">{report.currency}</p>
+                  </motion.section>
+                )}
               </div>
-
-              {report.detectedText && (
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Detected Text</h3>
-                  <p className="text-gray-300 bg-gray-700 p-3 rounded">{report.detectedText}</p>
-                </div>
-              )}
-
-              {report.currency && (
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Currency Detected</h3>
-                  <p className="text-gray-300 bg-gray-700 p-3 rounded">{report.currency}</p>
-                </div>
-              )}
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-4 mt-6">
-              <button
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12">
+              {/* Listen Button */}
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={handleSpeak}
-                className="flex-1 bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition-colors focus:outline-none focus:ring-4 focus:ring-green-500"
+                disabled={isSpeaking}
+                aria-label={isSpeaking ? 'Reading aloud…' : 'Listen to this report'}
+                className={`h-16 font-black text-xs uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 shadow-xl transition-all ${
+                  isSpeaking
+                    ? 'bg-orange-600/80 text-white shadow-accent/10 cursor-wait'
+                    : 'bg-accent hover:bg-orange-500 text-white shadow-accent/20'
+                }`}
               >
-                🔊 Speak Analysis
-              </button>
+                <Volume2 className="w-5 h-5" aria-hidden="true" />
+                {isSpeaking ? (
+                  <>
+                    Speaking
+                    <span className="flex gap-1 ml-1" aria-hidden="true">
+                      <span className="typing-dot opacity-70" />
+                      <span className="typing-dot opacity-70" />
+                      <span className="typing-dot opacity-70" />
+                    </span>
+                  </>
+                ) : (
+                  'Listen to Report'
+                )}
+              </motion.button>
               
-              <button
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={handleShare}
-                data-share-button
-                className="flex-1 bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold transition-colors focus:outline-none focus:ring-4 focus:ring-purple-500"
+                aria-label={isCopied ? 'Link copied to clipboard' : 'Copy shareable link'}
+                className={`h-16 border-2 font-black text-xs uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 transition-all ${
+                  isCopied 
+                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' 
+                  : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:border-white/20'
+                }`}
               >
-                🔗 Share Report
-              </button>
+                {isCopied
+                  ? <CheckCircle className="w-5 h-5" aria-hidden="true" />
+                  : <Share2 className="w-5 h-5" aria-hidden="true" />
+                }
+                {isCopied ? 'Broadcast Copied' : 'Transfer Link'}
+              </motion.button>
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="text-center mt-8 text-gray-400">
-            <p className="mb-2">
-              Powered by Drishti - AI Visual Assistant
+          {/* Footer Info */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="mt-12 text-center"
+            aria-hidden="true"
+          >
+            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-600 mb-2">Powered by Drishti AI Core</p>
+            <p className="text-[8px] font-bold text-slate-700 uppercase tracking-widest max-w-sm mx-auto leading-loose">
+              Visual data processed through secure neural nodes. No personal identifiers are stored within this public broadcast.
             </p>
-            <p className="text-sm">
-              This analysis was generated using Google's Gemini AI technology.
-            </p>
-          </div>
-        </div>
-      </main>
+          </motion.div>
+        </motion.main>
+      </div>
     </div>
   )
 }
