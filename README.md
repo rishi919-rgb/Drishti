@@ -18,7 +18,7 @@
 
 <br/>
 
-**🏆 Built by Team Discrete Syndicates | Rishikesh Singh & Dashrat Singh**
+**🏆 Built by Rishikesh Singh **
 
 <br/>
 
@@ -234,8 +234,8 @@ VITE_GEMINI_API_KEY=your_key
 
 <div align="center">
 
-**Built with 🔥 by Team Discrete Syndicates**
-*Rishikesh Singh · Dashrat Singh*
+**Built with 🔥 by **
+*Rishikesh Singh*
 
 *"Technology should empower everyone — not just those who can see."*
 
