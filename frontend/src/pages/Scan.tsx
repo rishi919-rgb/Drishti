@@ -6,6 +6,7 @@ import { useObjectDetection } from '../hooks/useObjectDetection'
 import { useVoiceCommands } from '../hooks/useVoiceCommands'
 import { speechService } from '../services/speech'
 import { faceRecognitionService } from '../services/faceRecognition'
+import { apiService } from '../services/api'
 
 interface User {
   id: string
@@ -53,8 +54,6 @@ export const ScanPage: React.FC<ScanPageProps> = ({
 
   // Object Detection Hook
   const {
-    isModelLoading: isObjectModelLoading,
-    isModelLoaded: isObjectModelLoaded,
     detectedObjects,
     targetObjectDetected,
     detectObjects
@@ -312,16 +311,21 @@ export const ScanPage: React.FC<ScanPageProps> = ({
     if (!user || !lastAnalysisData) return
 
     try {
-      // This would call the API service to save
-      // For now, just show success message
+      await apiService.saveAnalysis({
+        imageBase64: '',          // We don't re-store the full base64 from state
+        description: lastAnalysisData.description,
+        detectedText: lastAnalysisData.detectedText || '',
+        currency: lastAnalysisData.currency || '',
+      })
       setShowSaveSuccess(true)
       setTimeout(() => setShowSaveSuccess(false), 3000)
-      
       await speechService.speak('Analysis saved to your history')
     } catch (err) {
       console.error('Failed to save:', err)
+      await speechService.speak('Failed to save analysis')
     }
   }
+
 
   const handleShare = async () => {
     if (!lastAnalysisData) return
@@ -752,6 +756,17 @@ export const ScanPage: React.FC<ScanPageProps> = ({
           </div>
         </div>
       </main>
+
+      {/* Save Success Toast */}
+      {showSaveSuccess && (
+        <div className="fixed bottom-8 right-8 bg-emerald-900/90 backdrop-blur-2xl border border-emerald-500/30 p-4 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-right-4 duration-500 flex items-center gap-4 z-[100]">
+          <span className="text-xl">✅</span>
+          <div>
+            <p className="text-[10px] font-black tracking-widest uppercase text-emerald-400">Saved to History</p>
+            <p className="text-[9px] font-bold text-slate-400">Analysis committed successfully</p>
+          </div>
+        </div>
+      )}
 
       {/* Model Loading HUD */}
       {isFaceModelLoading && (
