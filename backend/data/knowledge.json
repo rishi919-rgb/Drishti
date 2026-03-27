@@ -1,0 +1,213 @@
+{
+  "pm kisan": {
+    "title": "PM Kisan Samman Nidhi",
+    "description": "Provides ₹6,000 per year to small and marginal farmers across India",
+    "benefits": "Three instalments of ₹2,000 each directly to bank accounts",
+    "eligibility": "All landholding farmers with cultivable land up to 2 hectares",
+    "documents": "Land records, Aadhaar card, Bank account details",
+    "how_to_apply": "Visit the nearest Common Service Centre or apply on pmkisan.gov.in"
+  },
+  "ayushman bharat": {
+    "title": "Ayushman Bharat Pradhan Mantri Jan Arogya Yojana",
+    "description": "World's largest health insurance scheme with ₹5 lakh cover per family per year",
+    "benefits": "Cashless and paperless treatment at over 25,000 empanelled hospitals for 1,393 procedures",
+    "eligibility": "Families listed in SECC-2011 database, poor and vulnerable rural and urban families",
+    "documents": "Aadhaar card, Ration card, Income certificate",
+    "how_to_apply": "Check eligibility at pmjay.gov.in or visit your nearest Arogya Mitra kiosk"
+  },
+  "ujjwala yojana": {
+    "title": "Pradhan Mantri Ujjwala Yojana",
+    "description": "Free LPG connections to women from Below Poverty Line households to replace polluting fuels",
+    "benefits": "Free LPG connection with first cylinder and stove, reducing indoor air pollution",
+    "eligibility": "Women aged 18 and above from BPL households",
+    "documents": "BPL ration card, Aadhaar, Bank account, Passport-size photo",
+    "how_to_apply": "Submit application at your nearest authorized LPG dealer"
+  },
+  "mudra yojana": {
+    "title": "Pradhan Mantri MUDRA Yojana",
+    "description": "Provides loans to non-corporate non-farm small and micro enterprises to facilitate growth",
+    "benefits": "Loans of up to ₹10 lakhs across three categories: Shishu (up to ₹50,000), Kishore (₹50,000 to ₹5 lakh), Tarun (₹5 lakh to ₹10 lakh)",
+    "eligibility": "Any Indian citizen with a business plan for non-farm income generating activities",
+    "documents": "Identity proof, Address proof, Business plan, Bank statements",
+    "how_to_apply": "Apply at any public sector bank, private sector bank, microfinance institutions, or mudra.org.in"
+  },
+  "jan dhan yojana": {
+    "title": "Pradhan Mantri Jan Dhan Yojana",
+    "description": "National financial inclusion mission to ensure affordable financial services to all households",
+    "benefits": "Zero balance bank account, RuPay debit card, ₹1 lakh accident insurance, ₹30,000 life cover, overdraft facility",
+    "eligibility": "Any Indian citizen, especially those without a bank account",
+    "documents": "Aadhaar card or any government approved identity proof",
+    "how_to_apply": "Visit any bank branch or Business Correspondent near you"
+  },
+  "skill india": {
+    "title": "Skill India Mission",
+    "description": "National initiative to enable large numbers of youth to take up industry-relevant skill training",
+    "benefits": "Free skill training, certification, stipend during training, placement assistance in various sectors",
+    "eligibility": "Indian youth aged 15 to 45 years looking for skill development",
+    "documents": "Aadhaar card, Age proof, Educational certificates",
+    "how_to_apply": "Register at skillindia.gov.in or nearest Pradhan Mantri Kaushal Kendra"
+  },
+  "startup india": {
+    "title": "Startup India Initiative",
+    "description": "Government initiative to build a strong ecosystem for nurturing innovation and startups",
+    "benefits": "3-year income tax exemption, fast-track patent examination, self-certification under 9 labour laws, ₹10,000 crore fund of funds",
+    "eligibility": "Entity incorporated for less than 10 years, annual turnover under ₹100 crore, working towards innovation",
+    "documents": "Incorporation certificate, PAN, Bank account details, Business pitch",
+    "how_to_apply": "Register at startupindia.gov.in"
+  },
+  "stand up india": {
+    "title": "Stand Up India Scheme",
+    "description": "Facilitates bank loans to SC, ST and women entrepreneurs for greenfield enterprises",
+    "benefits": "Bank loans between ₹10 lakh and ₹1 crore for manufacturing, services, or trading sector",
+    "eligibility": "SC, ST borrowers and women entrepreneurs aged 18 years and above",
+    "documents": "Identity proof, Caste certificate if applicable, Business plan, Bank account",
+    "how_to_apply": "Apply at standupmitra.in or approach any scheduled commercial bank"
+  },
+  "swachh bharat": {
+    "title": "Swachh Bharat Mission",
+    "description": "National cleanliness campaign to achieve an Open Defecation Free India and improve solid waste management",
+    "benefits": "Subsidy for construction of individual household toilets, waste processing plants in rural and urban areas",
+    "eligibility": "All households in rural areas without a toilet, urban local bodies for solid waste management",
+    "documents": "Aadhaar card, Bank account, Land proof for toilet construction",
+    "how_to_apply": "Apply through your Gram Panchayat in rural areas or municipal body in urban areas"
+  },
+  "national health mission": {
+    "title": "National Health Mission",
+    "description": "Comprehensive government program to strengthen healthcare delivery and infrastructure across India",
+    "benefits": "Free essential medicines, free diagnostics, free dialysis, free treatment for serious diseases, ambulance services",
+    "eligibility": "All Indian citizens, prioritizing rural, tribal, and urban poor populations",
+    "documents": "Aadhaar for linking benefits, no documents required for most services",
+    "how_to_apply": "Access services at any government health centre, PHC, CHC, or district hospital"
+  },
+  "pm fasal bima": {
+    "title": "Pradhan Mantri Fasal Bima Yojana",
+    "description": "Crop insurance scheme to provide financial support to farmers suffering crop loss due to natural calamities",
+    "benefits": "Insurance coverage and financial support for crop failure due to non-preventable risks",
+    "eligibility": "All farmers growing notified crops in notified areas",
+    "documents": "Bank account, Land records, Sowing certificate, Aadhaar",
+    "how_to_apply": "Apply through banks, insurance companies, or the PMFBY portal"
+  },
+  "e shram": {
+    "title": "E-Shram Portal",
+    "description": "National database of unorganised workers including migrant workers, construction workers, and gig workers",
+    "benefits": "₹2 lakh accidental insurance cover, links to social security benefits, priority in social schemes",
+    "eligibility": "Unorganised workers aged 16 to 59 years who are not EPFO or ESIC members",
+    "documents": "Aadhaar card, Mobile number linked to Aadhaar, Bank account",
+    "how_to_apply": "Self-register at eshram.gov.in or nearest Common Service Centre"
+  },
+  "paracetamol": {
+    "title": "Paracetamol (Acetaminophen)",
+    "uses": "Relief of mild to moderate fever, headache, toothache, muscle pain, and body ache",
+    "dosage": "Adults: 500mg to 1000mg every 4 to 6 hours, maximum 4000mg per day. Children: 10 to 15mg per kg every 4 to 6 hours",
+    "warning": "Do not exceed the recommended dose. Avoid alcohol. Consult doctor if symptoms persist beyond 3 days.",
+    "side_effects": "Rare at recommended doses; overdose can cause severe liver damage"
+  },
+  "dolo": {
+    "title": "Dolo 650",
+    "uses": "Fever, headache, body ache, toothache, and cold-related symptoms",
+    "dosage": "Adults: 1 tablet (650mg) every 4 to 6 hours as needed. Do not exceed 4 tablets in 24 hours.",
+    "warning": "Not recommended for sustained use without doctor's advice. Keep out of reach of children.",
+    "side_effects": "Nausea, stomach discomfort; rare cases of allergic rash"
+  },
+  "amoxicillin": {
+    "title": "Amoxicillin",
+    "uses": "Treatment of bacterial infections including chest infections, ear infections, and urinary tract infections",
+    "dosage": "Adults: 250mg to 500mg three times daily. Children: based on body weight, as per doctor's prescription.",
+    "warning": "Complete the full course even if you feel better. Not effective against viral infections.",
+    "side_effects": "Diarrhea, nausea, rash; allergic reactions in penicillin-sensitive individuals"
+  },
+  "azithromycin": {
+    "title": "Azithromycin",
+    "uses": "Bacterial infections including chest infections, throat infections, skin infections, and sexually transmitted infections",
+    "dosage": "Adults: 500mg once daily for 3 days or as prescribed. Children: as per doctor's prescription based on weight.",
+    "warning": "Inform your doctor of any heart conditions before use. Avoid antacids within 2 hours of taking this medicine.",
+    "side_effects": "Nausea, vomiting, diarrhea, stomach pain, and rarely heart rhythm changes"
+  },
+  "cetirizine": {
+    "title": "Cetirizine",
+    "uses": "Relief of allergy symptoms including hay fever, runny nose, sneezing, itchy eyes, and skin rashes",
+    "dosage": "Adults and children over 6 years: 10mg once daily. Children 2 to 6 years: 5mg once daily.",
+    "warning": "May cause drowsiness. Avoid driving or operating heavy machinery. Avoid alcohol.",
+    "side_effects": "Drowsiness, dry mouth, headache, and fatigue"
+  },
+  "metformin": {
+    "title": "Metformin",
+    "uses": "Management of Type 2 diabetes mellitus to control blood sugar levels",
+    "dosage": "Adults: initially 500mg twice daily with meals, increased gradually to 1000mg twice daily as advised by doctor.",
+    "warning": "Do not take if you have kidney disease or are about to have surgery. Consult doctor regularly for kidney function monitoring.",
+    "side_effects": "Nausea, diarrhea, stomach upset especially when starting; very rarely lactic acidosis"
+  },
+  "atorvastatin": {
+    "title": "Atorvastatin",
+    "uses": "Lowering cholesterol and reducing risk of heart attack, stroke, and cardiovascular disease",
+    "dosage": "Adults: 10mg to 80mg once daily in the evening as prescribed by doctor.",
+    "warning": "Inform doctor of any muscle pain or weakness. Avoid grapefruit juice. Regular blood tests for liver function required.",
+    "side_effects": "Muscle pain, weakness, nausea, and rarely liver enzyme elevation"
+  },
+  "losartan": {
+    "title": "Losartan",
+    "uses": "Treatment of high blood pressure (hypertension) and protection of kidneys in diabetic patients",
+    "dosage": "Adults: 50mg once daily, may be increased to 100mg once daily by doctor.",
+    "warning": "Do not use during pregnancy. Monitor blood pressure and kidney function regularly.",
+    "side_effects": "Dizziness, low blood pressure, elevated potassium levels, and back pain"
+  },
+  "pantoprazole": {
+    "title": "Pantoprazole",
+    "uses": "Treatment of acidity, gastroesophageal reflux disease (GERD), stomach ulcers, and excess stomach acid",
+    "dosage": "Adults: 40mg once or twice daily before meals as prescribed. Usually taken for 4 to 8 weeks.",
+    "warning": "Long-term use may reduce magnesium levels and affect bone density. Do not crush or chew.",
+    "side_effects": "Headache, diarrhea, nausea, and stomach pain"
+  },
+  "ondansetron": {
+    "title": "Ondansetron",
+    "uses": "Prevention and treatment of nausea and vomiting caused by chemotherapy, radiation therapy, or surgery",
+    "dosage": "Adults: 8mg two to three times daily. Children: dose based on weight and age, as per doctor's advice.",
+    "warning": "Inform doctor of any heart problems. Avoid if allergic to similar medicines.",
+    "side_effects": "Headache, constipation, dizziness, and rarely abnormal heart rhythm"
+  },
+  "ibuprofen": {
+    "title": "Ibuprofen",
+    "uses": "Pain relief for headaches, toothaches, menstrual cramps, arthritis, and fever reduction",
+    "dosage": "Adults: 200mg to 400mg every 4 to 6 hours as needed. Maximum 1200mg per day without prescription.",
+    "warning": "Take with food to avoid stomach upset. Not recommended for long-term use without medical supervision.",
+    "side_effects": "Stomach pain, nausea, heartburn, and risk of gastrointestinal bleeding with prolonged use"
+  },
+  "omeprazole": {
+    "title": "Omeprazole",
+    "uses": "Treatment of heartburn, stomach ulcers, GERD, and Helicobacter pylori infection when combined with antibiotics",
+    "dosage": "Adults: 20mg once daily before breakfast for 4 weeks. For ulcers: 20mg twice daily for 4 to 8 weeks.",
+    "warning": "Long-term use may increase risk of certain infections. Report any blood in stool or vomit to doctor.",
+    "side_effects": "Headache, nausea, diarrhea, and vitamin B12 deficiency with long-term use"
+  },
+  "drishti": {
+    "title": "Drishti AI Visual Assistant",
+    "description": "An AI-powered visual assistant designed to empower visually impaired users with real-time environmental awareness",
+    "features": "Offline object detection using COCO-SSD, real-time path guidance using YOLOv8 and MiDaS, face recognition using face-api.js, continuous voice commands, RAG knowledge base for government schemes and medicines",
+    "team": "Built by Rishi and team, Discrete Syndicates",
+    "tech": "React, TypeScript, Node.js, Gemini AI, YOLOv8, MiDaS, TensorFlow.js, Web Speech API"
+  },
+  "blast disease": {
+    "title": "Rice Blast Disease",
+    "description": "Fungal disease caused by Magnaporthe oryzae that affects rice crops in India",
+    "benefits": "Early detection saves up to 50% of crop yield",
+    "eligibility": "N/A",
+    "documents": "N/A",
+    "how_to_apply": "Apply Tricyclazole fungicide at first sign of infection. Practice crop rotation and use resistant varieties."
+  },
+  "organic farming": {
+    "title": "Organic Farming Tips",
+    "description": "Sustainable farming practice using natural inputs instead of chemical fertilizers and pesticides",
+    "benefits": "Healthier produce, premium market prices, lower input costs over time, and soil health improvement",
+    "eligibility": "Any farmer can adopt organic practices",
+    "documents": "PGS India certification for marketing as organic produce",
+    "how_to_apply": "Contact your local Krishi Vigyan Kendra or State Agriculture Department for training"
+  },
+  "nrega": {
+    "title": "MGNREGA - Mahatma Gandhi National Rural Employment Guarantee Act",
+    "description": "Guarantees 100 days of wage employment per year to every rural household whose adult members volunteer to do unskilled manual work",
+    "benefits": "Minimum 100 days of guaranteed employment at statutory minimum wages per household per year",
+    "eligibility": "Adult members of any rural household willing to do unskilled manual work",
+    "documents": "Job Card from Gram Panchayat, Aadhaar card, Bank or post office account",
+    "how_to_apply": "Register at your local Gram Panchayat office to get a Job Card"
+  }
+}

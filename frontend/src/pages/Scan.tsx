@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import Fuse from 'fuse.js'
 import { useCamera } from '../hooks/useCamera'
 import { useContinuousScan } from '../hooks/useContinuousScan'
 import { useObjectDetection } from '../hooks/useObjectDetection'
@@ -89,10 +90,92 @@ export const ScanPage: React.FC<ScanPageProps> = ({
   const [isPathMode, setIsPathMode] = useState(false)
   const [manualCommand, setManualCommand] = useState('')
 
+  // RAG Query Handler
+  const formatOfflineResponse = (key: string, data: any): string => {
+    // Government Schemes
+    if (data.benefits && data.eligibility) {
+      let text = `${data.title}: ${data.description}. `;
+      text += `Benefits: ${data.benefits}. `;
+      text += `Eligibility: ${data.eligibility}. `;
+      if (data.documents) text += `Documents required: ${data.documents}. `;
+      if (data.how_to_apply) text += `How to apply: ${data.how_to_apply}. `;
+      return text;
+    }
+    // Medicines
+    if (data.uses && data.dosage) {
+      let text = `${data.title}: Used for ${data.uses}. `;
+      text += `Dosage: ${data.dosage}. `;
+      if (data.warning) text += `Warning: ${data.warning}. `;
+      if (data.side_effects) text += `Possible side effects: ${data.side_effects}. `;
+      return text;
+    }
+    // Drishti project info
+    if (data.features) {
+      let text = `${data.title}: ${data.description}. `;
+      text += `Features: ${data.features}. `;
+      if (data.team) text += `Team: ${data.team}. `;
+      if (data.tech) text += `Built using: ${data.tech}. `;
+      return text;
+    }
+    // Generic fallback
+    return `${data.title || key}: ${JSON.stringify(data)}`;
+  };
+
+  const fetchRAG = async (topic: string) => {
+    try {
+      let responseText = '';
+      if (navigator.onLine) {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5002';
+        const res = await fetch(`${baseUrl}/api/rag/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: topic })
+        });
+        const data = await res.json();
+        responseText = data.response;
+      } else {
+        const localData = await fetch('/data/knowledge.json').then(r => r.json());
+        const lowerTopic = topic.toLowerCase();
+        // Build flat list + Fuse instance for offline fuzzy matching
+        const offlineList = Object.entries(localData).map(([key, data]) => ({ name: key, ...(data as object) }));
+        const offlineFuse = new Fuse(offlineList, {
+          keys: ['name'],
+          threshold: 0.4,
+          ignoreLocation: true
+        });
+        const offlineResult = offlineFuse.search(lowerTopic);
+        if (offlineResult.length > 0) {
+          const matched = offlineResult[0].item as any;
+          responseText = formatOfflineResponse(matched.name, matched);
+        } else {
+          responseText = "I'm sorry, I don't have information about that. Try asking about PM Kisan, Ayushman Bharat, Paracetamol, or Drishti.";
+        }
+      }
+      // Route data to visual Intelligence Nexus display
+      setLastAnalysisData({
+        timestamp: new Date().toISOString(),
+        description: responseText
+      });
+      // Fire TTS
+      speechService.speak(responseText);
+    } catch (err) {
+      console.error('RAG error:', err);
+      speechService.speak('Sorry, I could not fetch that information.');
+    }
+  };
+
   // Command Parsing
-  const handleVoiceCommand = useCallback((command: string) => {
+  const handleVoiceCommand = useCallback(async (command: string) => {
     const speech = command.toLowerCase();
     console.log("Voice Command Recognized:", speech);
+
+    if (speech.includes('tell me about') || speech.includes('what is') || speech.includes('info about')) {
+      const topic = speech.replace(/tell me about|what is|info about/i, '').trim();
+      if (topic) {
+        await fetchRAG(topic);
+        return;
+      }
+    }
 
     if (speech.includes('start scanning')) {
       speechService.speak('Starting continuous scan');
@@ -118,6 +201,12 @@ export const ScanPage: React.FC<ScanPageProps> = ({
       setIsPathMode(false);
       speechService.speak('Switching to face mode');
       if (isScanning) stopScanning();
+    } else {
+      // No standard command matched — try RAG lookup with full speech as topic.
+      // This allows bare queries like "drishti", "pm kisan", "paracetamol" to work
+      // without requiring the "tell me about" prefix every time.
+      console.log('[RAG] No command matched, attempting knowledge lookup for:', speech);
+      await fetchRAG(speech);
     }
   }, [isFaceMode, isPathMode, isScanning, startScanning, stopScanning, captureOnce]);
 
@@ -531,25 +620,23 @@ export const ScanPage: React.FC<ScanPageProps> = ({
                     </div>
                   )}
 
-                  {/* Text Fallback */}
-                  {(!isVoiceSupported || micError) && (
-                    <form onSubmit={handleManualCommandSubmit} className="flex gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <input
-                        type="text"
-                        value={manualCommand}
-                        onChange={(e) => setManualCommand(e.target.value)}
-                        placeholder="TYPE COMMAND (E.G. START SCANNING)"
-                        className="flex-1 px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:border-indigo-500/50 focus:outline-none text-[10px] font-black uppercase tracking-widest text-slate-300 placeholder:text-slate-600 transition-all"
-                      />
-                      <button 
-                        type="submit"
-                        disabled={!manualCommand.trim()}
-                        className="px-4 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 border border-indigo-500/30 rounded-xl font-black text-[10px] uppercase disabled:opacity-30 transition-all"
-                      >
-                        SEND
-                      </button>
-                    </form>
-                  )}
+                  {/* Text Fallback (Always Visible) */}
+                  <form onSubmit={handleManualCommandSubmit} className="mt-4 flex gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <input
+                      type="text"
+                      value={manualCommand}
+                      onChange={(e) => setManualCommand(e.target.value)}
+                      placeholder="TYPE COMMAND (E.G. TELL ME ABOUT PM KISAN)"
+                      className="flex-1 px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:border-indigo-500/50 focus:outline-none text-[10px] font-black uppercase tracking-widest text-slate-300 placeholder:text-slate-600 transition-all"
+                    />
+                    <button 
+                      type="submit"
+                      disabled={!manualCommand.trim()}
+                      className="px-4 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 border border-indigo-500/30 rounded-xl font-black text-[10px] uppercase disabled:opacity-30 transition-all"
+                    >
+                      SEND
+                    </button>
+                  </form>
                 </div>
               </div>
             </div>

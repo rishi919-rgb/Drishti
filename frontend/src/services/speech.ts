@@ -78,13 +78,15 @@ class SpeechService {
       resolve(); // Resolve anyway on error to not block the loop
     });
 
-    // 5 second fallback timeout
+    // Dynamic fallback timeout. Chrome sometimes misses the `onend` event entirely on long TTS blocks.
+    // We allow ~90ms per character to safely cover all spoken speeds, preventing premature cutoffs!
+    const fallbackDuration = Math.max(8000, text.length * 90);
     timeoutId = window.setTimeout(() => {
-      console.warn('Speech synthesis timeout fallback triggered');
-      this.synth.cancel(); // Try to clear the stuck speech
+      console.warn('Speech synthesis timeout fallback triggered on long text.');
+      this.synth.cancel(); // Clears any frozen stuck memory
       cleanup();
       resolve();
-    }, 5000);
+    }, fallbackDuration);
 
     this.synth.speak(this.currentUtterance);
   }

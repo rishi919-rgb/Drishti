@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import drishtiRoutes from './routes/drishtiRoutes.js';
 import pathRoutes from './routes/path.js';
+import ragRoutes from './routes/rag.js';
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/drishti', drishtiRoutes);
 app.use('/api/drishti/path', pathRoutes);
+app.use('/api/rag', ragRoutes);
 
 // MongoDB Connection
 const connectDB = async () => {
