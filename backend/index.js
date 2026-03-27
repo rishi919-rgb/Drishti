@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import drishtiRoutes from './routes/drishtiRoutes.js';
 import pathRoutes from './routes/path.js';
 import ragRoutes from './routes/rag.js';
+import authRoutes from './routes/auth.js';
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/drishti', drishtiRoutes);
 app.use('/api/drishti/path', pathRoutes);
 app.use('/api/rag', ragRoutes);

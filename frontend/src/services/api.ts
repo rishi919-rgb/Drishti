@@ -152,27 +152,30 @@ class ApiService {
     })
   }
 
-  // Auth methods (reuse from TruthStorm)
+  // Auth methods — note: these call /api/auth/... NOT /api/drishti/...
   async login(email: string, password: string) {
-    if (this.useMock) {
-      return mockApiService.login(email, password)
-    }
-    
-    return this.request('/auth/login', {
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${this.baseUrl}/api/auth/login`, {
       method: 'POST',
+      headers,
       body: JSON.stringify({ email, password }),
-    })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Login failed: ${res.status}`);
+    return data;
   }
 
   async register(name: string, email: string, password: string) {
-    if (this.useMock) {
-      return mockApiService.register(name, email, password)
-    }
-    
-    return this.request('/auth/register', {
+    const res = await fetch(`${this.baseUrl}/api/auth/register`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password }),
-    })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Registration failed: ${res.status}`);
+    return data;
   }
 
   // Check if user is authenticated
